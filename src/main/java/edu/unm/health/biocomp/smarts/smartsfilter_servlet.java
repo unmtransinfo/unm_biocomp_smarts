@@ -77,6 +77,7 @@ public class smartsfilter_servlet extends HttpServlet
   private static String color1="#EEEEEE";
   private static String PROGRESS_WIN_NAME=null;
   private static boolean stdizer_islicensed=false;
+  private static String SMI2IMG_SERVLETURL=null;
   private MolImporter molReader=null;
 
   /////////////////////////////////////////////////////////////////////////////
@@ -109,8 +110,8 @@ public class smartsfilter_servlet extends HttpServlet
     }
 
     // main logic:
-    ArrayList<String> cssincludes = new ArrayList<String>(Arrays.asList("biocomp.css"));
-    ArrayList<String> jsincludes = new ArrayList<String>(Arrays.asList("/marvin/marvin.js","biocomp.js","ddtip.js"));
+    ArrayList<String> cssincludes = new ArrayList<String>(Arrays.asList(CONTEXTPATH+"/css/biocomp.css"));
+    ArrayList<String> jsincludes = new ArrayList<String>(Arrays.asList(CONTEXTPATH+"/js/biocomp.js",CONTEXTPATH+"/js/ddtip.js"));
     boolean ok=false;
     ok=initialize(request,mrequest);
     if (mrequest!=null)		//method=POST, normal operation
@@ -119,7 +120,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, "tomcat"));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
         out.println(FormHtm(mrequest,response,params.getVal("formmode")));
         out.print(HtmUtils.FooterHtm(errors,true));
         return;
@@ -128,7 +129,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, "tomcat"));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
         out.println(FormHtm(mrequest,response,params.getVal("formmode")));
         out.println("<SCRIPT LANGUAGE=\"JavaScript\">go_reset(window.document.mainform,'"+params.getVal("formmode")+"',true)</SCRIPT>");
         out.print(HtmUtils.FooterHtm(errors,true));
@@ -139,7 +140,7 @@ public class smartsfilter_servlet extends HttpServlet
         {
           response.setContentType("text/html");
           out=response.getWriter();
-          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, "tomcat"));
+          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
           out.println(FormHtm(mrequest,response,params.getVal("formmode")));
           Date t_i = new Date();
 
@@ -160,7 +161,7 @@ public class smartsfilter_servlet extends HttpServlet
         {
           response.setContentType("text/html");
           out=response.getWriter();
-          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, "tomcat"));
+          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
           out.println(FormHtm(mrequest,response,params.getVal("formmode")));
           Analyze1mol(this.molReader,params);
           out.print(HtmUtils.OutputHtm(outputs));
@@ -177,7 +178,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, "tomcat"));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
         out.print(HelpHtm());
         out.print(HtmUtils.FooterHtm(errors,true));
       }
@@ -204,7 +205,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, "tomcat"));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
         out.println(FormHtm(mrequest,response,request.getParameter("formmode")));
         out.println("<SCRIPT>go_reset(window.document.mainform,'"+request.getParameter("formmode")+"',false)</SCRIPT>");
         out.print(HtmUtils.FooterHtm(errors,true));
@@ -220,14 +221,15 @@ public class smartsfilter_servlet extends HttpServlet
     params.clear();
     outputs.clear();
     errors.clear();
+    SMI2IMG_SERVLETURL=(CONTEXTPATH+"/mol2img");
 
     String logo_htm="<TABLE CELLSPACING=5 CELLPADDING=5><TR><TD>";
-    String imghtm=("<IMG BORDER=0 SRC=\"/tomcat"+CONTEXTPATH+"/images/biocomp_logo_only.gif\">");
+    String imghtm=("<IMG BORDER=0 SRC=\""+CONTEXTPATH+"/images/biocomp_logo_only.gif\">");
     String tiphtm=(APPNAME+" web app from UNM Translational Informatics.");
     String href=("http://medicine.unm.edu/informatics/");
     logo_htm+=(HtmUtils.HtmTipper(imghtm,tiphtm,href,200,"white"));
     logo_htm+="</TD><TD>";
-    imghtm=("<IMG BORDER=0 SRC=\"/tomcat"+CONTEXTPATH+"/images/chemaxon_powered_100px.png\">");
+    imghtm=("<IMG BORDER=0 SRC=\""+CONTEXTPATH+"/images/chemaxon_powered_100px.png\">");
     tiphtm=("JChem and Marvin from ChemAxon Ltd.");
     href=("http://www.chemaxon.com");
     logo_htm+=(HtmUtils.HtmTipper(imghtm,tiphtm,href,200,"white"));
@@ -770,10 +772,7 @@ public class smartsfilter_servlet extends HttpServlet
       }
     }
 
-    // This is our convention; Apache proxies the 8080 port via /tomcat.
-    String smi2img_servleturl=("http://"+SERVERNAME+"/tomcat");
-    smi2img_servleturl+=(CONTEXTPATH+"/mol2img");
-    String imghtm=HtmUtils.Smi2ImgHtm(smiles,depopts,h,w,smi2img_servleturl,true,4,"go_zoom_smi2img");
+    String imghtm=HtmUtils.Smi2ImgHtm(smiles,depopts,h,w,SMI2IMG_SERVLETURL,true,4,"go_zoom_smi2img");
 
     outputs.add("molecule: <B>"+mol.getName()+"</B>");
     if (params.isChecked("depict"))
@@ -809,7 +808,7 @@ public class smartsfilter_servlet extends HttpServlet
       if (hit)
       {
         String opts=(depopts+"&smartscode="+URLEncoder.encode(smrt.getSmarts(),"UTF-8"));
-        imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,smi2img_servleturl,false,4,null);
+        imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,SMI2IMG_SERVLETURL,false,4,null);
         thtm+=("<TD ALIGN=CENTER VALIGN=TOP><TT>"+HtmUtils.HtmTipper("<B>yes</B>",imghtm,w,"white")+"</TT></TD>\n");
         ++n_matches;
       }
@@ -871,10 +870,6 @@ public class smartsfilter_servlet extends HttpServlet
     if (params.getVal("arom").equals("gen")) depopts+=("&arom_gen=true");
     else if (params.getVal("arom").equals("bas")) depopts+=("&arom_bas=true");
     else if (params.getVal("arom").equals("none")) depopts+=("&kekule=true");
-
-    // This is our convention; Apache proxies the 8080 port via /tomcat.
-    String smi2img_servleturl=("http://"+SERVERNAME+"/tomcat");
-    smi2img_servleturl+=(CONTEXTPATH+"/mol2img");
 
     File fout=null;
     try {
@@ -1071,13 +1066,13 @@ public class smartsfilter_servlet extends HttpServlet
         String imghtm;
         if (params.isChecked("depict"))
         {
-          imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,smi2img_servleturl,true,4,"go_zoom_smi2img");
+          imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,SMI2IMG_SERVLETURL,true,4,"go_zoom_smi2img");
           rhtm+="<TD>"+imghtm+"</TD>\n";
           rhtm+="<TD><TT>"+molname+"</TT></TD>\n";
         }
         else
         {
-          imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,smi2img_servleturl,false,4,null);
+          imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,SMI2IMG_SERVLETURL,false,4,null);
           rhtm+=("<TD><TT>"+HtmUtils.HtmTipper(molname,imghtm,w,"white")+"</TT></TD>\n");
         }
 
@@ -1157,7 +1152,7 @@ public class smartsfilter_servlet extends HttpServlet
 "    pwin.document.close(); //if window exists, clear\n"+
 "    pwin.document.open('text/html');\n"+
 "    pwin.document.writeln('<HTML><HEAD>');\n"+
-"    pwin.document.writeln('<LINK REL=\"stylesheet\" type=\"text/css\" HREF=\"/tomcat"+CONTEXTPATH+"/css/biocomp.css\" />');\n"+
+"    pwin.document.writeln('<LINK REL=\"stylesheet\" type=\"text/css\" HREF=\""+CONTEXTPATH+"/css/biocomp.css\" />');\n"+
 "    pwin.document.writeln('</HEAD><BODY BGCOLOR=\"#DDDDDD\">');\n"+
 "    pwin.document.writeln('"+SERVLETNAME+"...<BR>');\n"+
 "    pwin.document.writeln('"+DateFormat.getDateInstance(DateFormat.FULL).format(new Date())+"<BR>');\n"+
@@ -1397,8 +1392,8 @@ public class smartsfilter_servlet extends HttpServlet
       throw new ServletException("Please supply UPLOADDIR parameter");
     SCRATCHDIR=conf.getInitParameter("SCRATCHDIR");
     if (SCRATCHDIR==null) { SCRATCHDIR="/tmp"; }
-    LOGDIR=conf.getInitParameter("LOGDIR")+CONTEXTPATH;
-    if (LOGDIR==null) LOGDIR="/usr/local/tomcat/logs"+CONTEXTPATH;
+    LOGDIR=conf.getInitParameter("LOGDIR");
+    if (LOGDIR==null) LOGDIR="/tmp"+CONTEXTPATH+"_logs";
     try { N_MAX=Integer.parseInt(conf.getInitParameter("N_MAX")); }
     catch (Exception e) { N_MAX=1000; }
     try { N_MAX_VIEW=Integer.parseInt(conf.getInitParameter("N_MAX_VIEW")); }
