@@ -77,8 +77,9 @@ public class smartsfilter_servlet extends HttpServlet
   private static String color1="#EEEEEE";
   private static String PROGRESS_WIN_NAME=null;
   private static boolean stdizer_islicensed=false;
-  private static String SMI2IMG_SERVLETURL=null;
   private MolImporter molReader=null;
+  private static String SMI2IMG_SERVLETURL=null;
+  private static String PROXY_PREFIX=null;	// configured in web.xml
 
   /////////////////////////////////////////////////////////////////////////////
   public void doPost(HttpServletRequest request,HttpServletResponse response)
@@ -110,8 +111,8 @@ public class smartsfilter_servlet extends HttpServlet
     }
 
     // main logic:
-    ArrayList<String> cssincludes = new ArrayList<String>(Arrays.asList(CONTEXTPATH+"/css/biocomp.css"));
-    ArrayList<String> jsincludes = new ArrayList<String>(Arrays.asList(CONTEXTPATH+"/js/biocomp.js",CONTEXTPATH+"/js/ddtip.js"));
+    ArrayList<String> cssincludes = new ArrayList<String>(Arrays.asList(PROXY_PREFIX+CONTEXTPATH+"/css/biocomp.css"));
+    ArrayList<String> jsincludes = new ArrayList<String>(Arrays.asList(PROXY_PREFIX+CONTEXTPATH+"/js/biocomp.js", PROXY_PREFIX+CONTEXTPATH+"/js/ddtip.js"));
     boolean ok=false;
     ok=initialize(request,mrequest);
     if (mrequest!=null)		//method=POST, normal operation
@@ -120,7 +121,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.println(FormHtm(mrequest,response,params.getVal("formmode")));
         out.print(HtmUtils.FooterHtm(errors,true));
         return;
@@ -129,7 +130,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.println(FormHtm(mrequest,response,params.getVal("formmode")));
         out.println("<SCRIPT LANGUAGE=\"JavaScript\">go_reset(window.document.mainform,'"+params.getVal("formmode")+"',true)</SCRIPT>");
         out.print(HtmUtils.FooterHtm(errors,true));
@@ -140,7 +141,7 @@ public class smartsfilter_servlet extends HttpServlet
         {
           response.setContentType("text/html");
           out=response.getWriter();
-          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
+          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
           out.println(FormHtm(mrequest,response,params.getVal("formmode")));
           Date t_i = new Date();
 
@@ -161,7 +162,7 @@ public class smartsfilter_servlet extends HttpServlet
         {
           response.setContentType("text/html");
           out=response.getWriter();
-          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
+          out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
           out.println(FormHtm(mrequest,response,params.getVal("formmode")));
           Analyze1mol(this.molReader,params);
           out.print(HtmUtils.OutputHtm(outputs));
@@ -178,7 +179,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.print(HelpHtm());
         out.print(HtmUtils.FooterHtm(errors,true));
       }
@@ -205,7 +206,7 @@ public class smartsfilter_servlet extends HttpServlet
       {
         response.setContentType("text/html");
         out=response.getWriter();
-        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request, null));
+        out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.println(FormHtm(mrequest,response,request.getParameter("formmode")));
         out.println("<SCRIPT>go_reset(window.document.mainform,'"+request.getParameter("formmode")+"',false)</SCRIPT>");
         out.print(HtmUtils.FooterHtm(errors,true));
@@ -221,15 +222,15 @@ public class smartsfilter_servlet extends HttpServlet
     params.clear();
     outputs.clear();
     errors.clear();
-    SMI2IMG_SERVLETURL=(CONTEXTPATH+"/mol2img");
+    SMI2IMG_SERVLETURL=(PROXY_PREFIX+CONTEXTPATH+"/mol2img");
 
     String logo_htm="<TABLE CELLSPACING=5 CELLPADDING=5><TR><TD>";
-    String imghtm=("<IMG BORDER=0 SRC=\""+CONTEXTPATH+"/images/biocomp_logo_only.gif\">");
+    String imghtm=("<IMG BORDER=0 SRC=\""+PROXY_PREFIX+CONTEXTPATH+"/images/biocomp_logo_only.gif\">");
     String tiphtm=(APPNAME+" web app from UNM Translational Informatics.");
     String href=("http://medicine.unm.edu/informatics/");
     logo_htm+=(HtmUtils.HtmTipper(imghtm,tiphtm,href,200,"white"));
     logo_htm+="</TD><TD>";
-    imghtm=("<IMG BORDER=0 SRC=\""+CONTEXTPATH+"/images/chemaxon_powered_100px.png\">");
+    imghtm=("<IMG BORDER=0 SRC=\""+PROXY_PREFIX+CONTEXTPATH+"/images/chemaxon_powered_100px.png\">");
     tiphtm=("JChem and Marvin from ChemAxon Ltd.");
     href=("http://www.chemaxon.com");
     logo_htm+=(HtmUtils.HtmTipper(imghtm,tiphtm,href,200,"white"));
@@ -1152,7 +1153,7 @@ public class smartsfilter_servlet extends HttpServlet
 "    pwin.document.close(); //if window exists, clear\n"+
 "    pwin.document.open('text/html');\n"+
 "    pwin.document.writeln('<HTML><HEAD>');\n"+
-"    pwin.document.writeln('<LINK REL=\"stylesheet\" type=\"text/css\" HREF=\""+CONTEXTPATH+"/css/biocomp.css\" />');\n"+
+"    pwin.document.writeln('<LINK REL=\"stylesheet\" type=\"text/css\" HREF=\""+PROXY_PREFIX+CONTEXTPATH+"/css/biocomp.css\" />');\n"+
 "    pwin.document.writeln('</HEAD><BODY BGCOLOR=\"#DDDDDD\">');\n"+
 "    pwin.document.writeln('"+SERVLETNAME+"...<BR>');\n"+
 "    pwin.document.writeln('"+DateFormat.getDateInstance(DateFormat.FULL).format(new Date())+"<BR>');\n"+
@@ -1383,8 +1384,6 @@ public class smartsfilter_servlet extends HttpServlet
     super.init(conf);
     CONTEXT=getServletContext();
     CONTEXTPATH=CONTEXT.getContextPath();
-    //CONFIG=conf;
-    // read servlet parameters (from web.xml):
     try { APPNAME=conf.getInitParameter("APPNAME"); }
     catch (Exception e) { APPNAME=this.getServletName(); }
     UPLOADDIR=conf.getInitParameter("UPLOADDIR");
@@ -1402,6 +1401,7 @@ public class smartsfilter_servlet extends HttpServlet
     catch (Exception e) { ENABLE_NOLIMIT=false; }
     try { MAX_POST_SIZE=Integer.parseInt(conf.getInitParameter("MAX_POST_SIZE")); }
     catch (Exception e) { MAX_POST_SIZE=10*1024*1024; }
+    PROXY_PREFIX=((conf.getInitParameter("PROXY_PREFIX")!=null)?conf.getInitParameter("PROXY_PREFIX"):"");
     SMARTSDIR=CONTEXT.getRealPath("")+"/data/smarts"; //Works.
     ArrayList<String> smartsfnames = new ArrayList<String>();
     smartsfnames.addAll(Arrays.asList(glaxo_files));
