@@ -53,9 +53,8 @@ public class smartsfilter_servlet extends HttpServlet
   //private static int SERVERPORT=0;
   private static String SERVERNAME=null;
   private static String REMOTEHOST=null;
-  private static Calendar calendar=Calendar.getInstance();
-  private static String datestr=null;
-  private static File logfile=null;
+  private static String DATESTR=null;
+  private static File LOGFILE=null;
   private static String PREFIX=null;
   private static int scratch_retire_sec=3600;
   private static final String[] STD_SMIRKSES={
@@ -238,73 +237,78 @@ public class smartsfilter_servlet extends HttpServlet
     errors.add(logo_htm);
 
     //Create webapp-specific log dir if necessary:
-    File dout=new File(LOGDIR);
+    File dout = new File(LOGDIR);
     if (!dout.exists())
     {
-      boolean ok=dout.mkdir();
+      boolean ok = dout.mkdir();
       System.err.println("LOGDIR creation "+(ok?"succeeded":"failed")+": "+LOGDIR);
       if (!ok)
       {
-        errors.add("ERROR: could not create LOGDIR: "+LOGDIR);
-        return false;
+        errors.add("ERROR: could not create LOGDIR (logging disabled): "+LOGDIR);
       }
     }
-
-    String logpath=LOGDIR+"/"+SERVLETNAME+".log";
-    logfile=new File(logpath);
-    if (!logfile.exists())
+    LOGFILE = new File(LOGDIR+"/"+SERVLETNAME+".log");
+    if (!LOGFILE.exists())
     {
-      logfile.createNewFile();
-      logfile.setWritable(true,true);
-      PrintWriter out_log=new PrintWriter(logfile);
-      out_log.println("date\tip\tN"); 
-      out_log.flush();
-      out_log.close();
+      try {
+        LOGFILE.createNewFile();
+        LOGFILE.setWritable(true,true);
+        PrintWriter out_log = new PrintWriter(LOGFILE);
+        out_log.println("date\tip\tN"); 
+        out_log.flush();
+        out_log.close();
+      }
+      catch (Exception e) {
+        errors.add("ERROR: Could not create LOGFILE (logging disabled): ."+e.getMessage());
+        LOGFILE = null;
+      }
     }
-    if (!logfile.canWrite())
+    else if (!LOGFILE.canWrite())
     {
-      errors.add("ERROR: Log file not writable.");
-      return false;
+      errors.add("ERROR: LOGFILE not writable (logging disabled).");
+      LOGFILE = null;
     }
-    BufferedReader buff=new BufferedReader(new FileReader(logfile));
-    if (buff==null)
-    {
-      errors.add("ERROR: Cannot open log file.");
-      return false;
+    if (LOGFILE!=null) {
+      BufferedReader buff = new BufferedReader(new FileReader(LOGFILE));
+      if (buff==null)
+      {
+        errors.add("ERROR: Cannot open LOGFILE (logging disabled).");
+        LOGFILE = null;
+      }
+      else
+      {
+        int n_lines=0;
+        String line=null;
+        Calendar calendar = Calendar.getInstance();
+        String startdate=null;
+        while ((line=buff.readLine())!=null)
+        {
+          ++n_lines;
+          String[] fields = Pattern.compile("\\t").split(line);
+          if (n_lines==2) startdate = fields[0];
+        }
+        buff.close(); //Else can result in error: "Too many open files"
+        if (n_lines>2)
+        {
+          calendar.set(Integer.parseInt(startdate.substring(0,4)),
+                   Integer.parseInt(startdate.substring(4,6))-1,
+                   Integer.parseInt(startdate.substring(6,8)),
+                   Integer.parseInt(startdate.substring(8,10)),
+                   Integer.parseInt(startdate.substring(10,12)),0);
+          DateFormat df = DateFormat.getDateInstance(DateFormat.FULL,Locale.US);
+          errors.add("since "+df.format(calendar.getTime())+", times used: "+(n_lines-1));
+        }
+        calendar.setTime(new Date());
+        DATESTR = String.format("%04d%02d%02d%02d%02d",
+          calendar.get(Calendar.YEAR),
+          calendar.get(Calendar.MONTH)+1,
+          calendar.get(Calendar.DAY_OF_MONTH),
+          calendar.get(Calendar.HOUR_OF_DAY),
+          calendar.get(Calendar.MINUTE));
+        Random rand = new Random();
+        PREFIX = SERVLETNAME+"."+DATESTR+"."+String.format("%03d",rand.nextInt(1000));
+      }
     }
-
-    int n_lines=0;
-    String line=null;
-    String startdate=null;
-    while ((line=buff.readLine())!=null)
-    {
-      ++n_lines;
-      String[] fields=Pattern.compile("\\t").split(line);
-      if (n_lines==2) startdate=fields[0];
-    }
-    buff.close(); //Else can result in error: "Too many open files"
-    if (n_lines>2)
-    {
-      calendar.set(Integer.parseInt(startdate.substring(0,4)),
-               Integer.parseInt(startdate.substring(4,6))-1,
-               Integer.parseInt(startdate.substring(6,8)),
-               Integer.parseInt(startdate.substring(8,10)),
-               Integer.parseInt(startdate.substring(10,12)),0);
-
-      DateFormat df=DateFormat.getDateInstance(DateFormat.FULL,Locale.US);
-      errors.add("since "+df.format(calendar.getTime())+", times used: "+(n_lines-1));
-    }
-
-    calendar.setTime(new Date());
-    datestr=String.format("%04d%02d%02d%02d%02d",
-      calendar.get(Calendar.YEAR),
-      calendar.get(Calendar.MONTH)+1,
-      calendar.get(Calendar.DAY_OF_MONTH),
-      calendar.get(Calendar.HOUR_OF_DAY),
-      calendar.get(Calendar.MINUTE));
-
-    Random rand = new Random();
-    PREFIX=SERVLETNAME+"."+datestr+"."+String.format("%03d",rand.nextInt(1000));
 
     LicenseManager.refresh();
     //Really needed?  Yes.
@@ -319,7 +323,7 @@ public class smartsfilter_servlet extends HttpServlet
       return false;
     }
 
-    stdizer_islicensed=LicenseManager.isLicensed(chemaxon.license.LicenseManager.STANDARDIZER);
+    stdizer_islicensed = LicenseManager.isLicensed(chemaxon.license.LicenseManager.STANDARDIZER);
     if (!stdizer_islicensed) {
       errors.add("ChemAxon Standardizer license absent; disabling normalization.");
     }
@@ -370,6 +374,7 @@ public class smartsfilter_servlet extends HttpServlet
     File fileDB=mrequest.getFile(fname);
     String intxtDB=params.getVal("intxt").replaceFirst("[\\s]+$","");
     int max_intxt_lines=5000;
+    String line=null;
     if (fileDB!=null)
     {
       if (params.isChecked("file2txt") && fileDB!=null)
@@ -833,10 +838,11 @@ public class smartsfilter_servlet extends HttpServlet
     outputs.add("<B>smarts patterns:</B>");
     outputs.add(thtm);
 
-    PrintWriter out_log=new PrintWriter(
-      new BufferedWriter(new FileWriter(logfile,true)));
-    out_log.printf("%s\t%s\t%d\n",datestr,REMOTEHOST,1); 
-    out_log.close();
+    if (LOGFILE!=null) {
+      PrintWriter out_log=new PrintWriter(new BufferedWriter(new FileWriter(LOGFILE,true)));
+      out_log.printf("%s\t%s\t%d\n",DATESTR,REMOTEHOST,1); 
+      out_log.close();
+    }
   }
   /////////////////////////////////////////////////////////////////////////////
   private static Vector<SmartsfilterResult> Smartsfilter_LaunchThread(
@@ -1120,9 +1126,11 @@ public class smartsfilter_servlet extends HttpServlet
       if (n_out>N_MAX_VIEW)
         outputs.add("View truncated at N_MAX_VIEW mols: "+N_MAX_VIEW);
     }
-    PrintWriter out_log=new PrintWriter(new BufferedWriter(new FileWriter(logfile,true)));
-    out_log.printf("%s\t%s\t%d\n",datestr,REMOTEHOST,n_mols); 
-    out_log.close();
+    if (LOGFILE!=null) {
+      PrintWriter out_log=new PrintWriter(new BufferedWriter(new FileWriter(LOGFILE,true)));
+      out_log.printf("%s\t%s\t%d\n",DATESTR,REMOTEHOST,n_mols); 
+      out_log.close();
+    }
   }
   /////////////////////////////////////////////////////////////////////////////
   private static String JavaScript()
