@@ -236,6 +236,12 @@ public class smartsfilter_servlet extends HttpServlet
     logo_htm+="</TD></TR></TABLE>";
     errors.add(logo_htm);
 
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(new Date());
+    DATESTR = String.format("%04d%02d%02d%02d%02d", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH)+1, calendar.get(Calendar.DAY_OF_MONTH), calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE));
+    Random rand = new Random();
+    PREFIX = SERVLETNAME+"."+DATESTR+"."+String.format("%03d",rand.nextInt(1000));
+
     //Create webapp-specific log dir if necessary:
     File dout = new File(LOGDIR);
     if (!dout.exists())
@@ -279,7 +285,6 @@ public class smartsfilter_servlet extends HttpServlet
       {
         int n_lines=0;
         String line=null;
-        Calendar calendar = Calendar.getInstance();
         String startdate=null;
         while ((line=buff.readLine())!=null)
         {
@@ -298,32 +303,21 @@ public class smartsfilter_servlet extends HttpServlet
           DateFormat df = DateFormat.getDateInstance(DateFormat.FULL,Locale.US);
           errors.add("since "+df.format(calendar.getTime())+", times used: "+(n_lines-1));
         }
-        calendar.setTime(new Date());
-        DATESTR = String.format("%04d%02d%02d%02d%02d",
-          calendar.get(Calendar.YEAR),
-          calendar.get(Calendar.MONTH)+1,
-          calendar.get(Calendar.DAY_OF_MONTH),
-          calendar.get(Calendar.HOUR_OF_DAY),
-          calendar.get(Calendar.MINUTE));
-        Random rand = new Random();
-        PREFIX = SERVLETNAME+"."+DATESTR+"."+String.format("%03d",rand.nextInt(1000));
       }
     }
 
+    try {
+      LicenseManager.setLicenseFile(CONTEXT.getRealPath("")+"/.chemaxon/license.cxl");
+    } catch (Exception e) {
+      errors.add("ERROR: ChemAxon LicenseManager error: "+e.getMessage());
+    }
     LicenseManager.refresh();
-    //Really needed?  Yes.
     if (!LicenseManager.isLicensed(LicenseManager.JCHEM))
     {
       errors.add("ERROR: ChemAxon license error; JCHEM is required.");
       return false;
     }
-    if (!(new MolSearch()).isLicensed()) //Probably redundant.
-    {
-      errors.add("ERROR: ChemAxon license error; MolSearch required.");
-      return false;
-    }
-
-    stdizer_islicensed = LicenseManager.isLicensed(chemaxon.license.LicenseManager.STANDARDIZER);
+    stdizer_islicensed = LicenseManager.isLicensed(LicenseManager.STANDARDIZER);
     if (!stdizer_islicensed) {
       errors.add("ChemAxon Standardizer license absent; disabling normalization.");
     }
