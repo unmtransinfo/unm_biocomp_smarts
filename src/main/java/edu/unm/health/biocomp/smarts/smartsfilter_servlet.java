@@ -53,7 +53,7 @@ public class smartsfilter_servlet extends HttpServlet
   private static String SERVERNAME=null;
   private static String REMOTEHOST=null;
   private static String DATESTR=null;
-  private static String PREFIX=null;
+  private static String TMPFILE_PREFIX=null;
   private static int scratch_retire_sec=3600;
   private static final String[] STD_SMIRKSES={
     "[CX3:1](=[O:2])-[OX1:3]>>[C:1](=[O:2])-[O+0:3][H] carboxylic acid",
@@ -129,7 +129,7 @@ public class smartsfilter_servlet extends HttpServlet
         out=response.getWriter();
         out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.println(FormHtm(mrequest,response,params.getVal("formmode")));
-        out.println("<SCRIPT LANGUAGE=\"JavaScript\">go_reset(window.document.mainform,'"+params.getVal("formmode")+"',true)</SCRIPT>");
+        out.println("<SCRIPT LANGUAGE=\"JavaScript\">go_init(window.document.mainform,'"+params.getVal("formmode")+"',true)</SCRIPT>");
         out.print(HtmUtils.FooterHtm(errors,true));
       }
       else if (mrequest.getParameter("filter").equals("TRUE"))
@@ -205,7 +205,7 @@ public class smartsfilter_servlet extends HttpServlet
         out=response.getWriter();
         out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.println(FormHtm(mrequest,response,request.getParameter("formmode")));
-        out.println("<SCRIPT>go_reset(window.document.mainform,'"+request.getParameter("formmode")+"',false)</SCRIPT>");
+        out.println("<SCRIPT>go_init(window.document.mainform,'"+request.getParameter("formmode")+"',false)</SCRIPT>");
         out.print(HtmUtils.FooterHtm(errors,true));
       }
     }
@@ -238,12 +238,17 @@ public class smartsfilter_servlet extends HttpServlet
     calendar.setTime(new Date());
     DATESTR = String.format("%04d%02d%02d%02d%02d", calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH)+1, calendar.get(Calendar.DAY_OF_MONTH), calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE));
     Random rand = new Random();
-    PREFIX = SERVLETNAME+"."+DATESTR+"."+String.format("%03d",rand.nextInt(1000));
+    TMPFILE_PREFIX = SERVLETNAME+"."+DATESTR+"."+String.format("%03d",rand.nextInt(1000));
 
-    try {
-      LicenseManager.setLicenseFile(CONTEXT.getRealPath("")+"/.chemaxon/license.cxl");
-    } catch (Exception e) {
-      errors.add("ERROR: ChemAxon LicenseManager error: "+e.getMessage());
+    try { LicenseManager.setLicenseFile(CONTEXT.getRealPath("")+"/.chemaxon/license.cxl"); }
+    catch (Exception e) {
+      errors.add("ERROR: "+e.getMessage());
+      if (System.getenv("HOME") !=null) {
+        try { LicenseManager.setLicenseFile(System.getenv("HOME")+"/.chemaxon/license.cxl"); }
+        catch (Exception e2) {
+          errors.add("ERROR: "+e2.getMessage());
+        }
+      }
     }
     LicenseManager.refresh();
     if (!LicenseManager.isLicensed(LicenseManager.JCHEM))
@@ -561,84 +566,83 @@ public class smartsfilter_servlet extends HttpServlet
     if (params.getVal("ofmt").equals("sdf")) ofmt_sdf="CHECKED";
     else ofmt_smiles="CHECKED";
 
-    String htm="";
-    htm+=("<FORM NAME=\"mainform\" METHOD=POST\n");
-    htm+=(" ACTION=\""+response.encodeURL(SERVLETNAME)+"\"\n");
-    htm+=(" ENCTYPE=\"multipart/form-data\">\n");
-    htm+=("<INPUT TYPE=HIDDEN NAME=\"filter\">\n");
-    htm+=("<INPUT TYPE=HIDDEN NAME=\"changemode\">\n");
-    htm+=("<TABLE WIDTH=\"100%\"><TR><TD><H1>"+APPNAME+"</H1></TD>\n");
-    htm+=("<TD WIDTH=\"30%\" ALIGN=RIGHT>\n");
-    htm+=("<B>mode:</B>\n");
-    htm+=("<INPUT TYPE=RADIO NAME=\"formmode\" VALUE=\"normal\" onClick=\"go_changemode(document.mainform)\" "+formmode_normal+">normal\n");
-    htm+=("<INPUT TYPE=RADIO NAME=\"formmode\" VALUE=\"expert\" onClick=\"go_changemode(document.mainform)\" "+formmode_expert+">expert\n");
-    htm+=("<BUTTON TYPE=BUTTON onClick=\"void window.open('"+response.encodeURL(SERVLETNAME)+"?help=TRUE','helpwin','width=600,height=400,scrollbars=1,resizable=1')\"><B>Help</B></BUTTON>\n");
-    htm+=("<BUTTON TYPE=BUTTON onClick=\"window.location.replace('"+response.encodeURL(SERVLETNAME)+"?formmode="+formmode+"')\"><B>Reset</B></BUTTON>\n");
-    htm+=("</TD></TR></TABLE>\n");
-    htm+=("<HR>\n");
-    htm+=("<TABLE WIDTH=\"100%\" CELLPADDING=5 CELLSPACING=5>\n");
-    htm+=("<TR BGCOLOR=\"#CCCCCC\"><TD VALIGN=TOP>\n");
-    htm+=("<B>input:</B> fmt:"+molfmt_menu);
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"file2txt\" VALUE=\"CHECKED\" "+params.getVal("file2txt")+">file2txt<BR>\n");
-    htm+=("upload: <INPUT TYPE=\"FILE\" NAME=\"infile\"> ...or paste:\n");
-    htm+=("<BR><TEXTAREA NAME=\"intxt\" WRAP=OFF ROWS=12 COLS=48>"+params.getVal("intxt")+"</TEXTAREA>\n");
-    htm+=("</TD>\n");
-    htm+=("<TD WIDTH=\"30%\" VALIGN=TOP>\n");
-    htm+=("<B>smarts:</B> (select any combo):\n");
-    htm+=("<TABLE WIDTH=\"100%\"><TR><TD WIDTH=\"50%\" VALIGN=TOP>");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"blakelint\" VALUE=\"CHECKED\" "+params.getVal("blakelint")+">Blake<BR>\n");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"glaxo\" VALUE=\"CHECKED\" "+params.getVal("glaxo")+">Glaxo<BR>\n");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"pains\" VALUE=\"CHECKED\" "+params.getVal("pains")+">PAINS<BR>\n");
-    htm+=("</TD><TD VALIGN=TOP>\n");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"alarmnmr\" VALUE=\"CHECKED\" "+params.getVal("alarmnmr")+">ALARM NMR<BR>\n");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"oprea\" VALUE=\"CHECKED\" "+params.getVal("oprea")+">Oprea<BR>\n");
-    htm+=("</TD></TR></TABLE>\n");
+    String htm = (
+       ("<FORM NAME=\"mainform\" METHOD=POST\n")
+      +(" ACTION=\""+response.encodeURL(SERVLETNAME)+"\"\n")
+      +(" ENCTYPE=\"multipart/form-data\">\n")
+      +("<INPUT TYPE=HIDDEN NAME=\"filter\">\n")
+      +("<INPUT TYPE=HIDDEN NAME=\"changemode\">\n")
+      +("<TABLE WIDTH=\"100%\"><TR><TD><H1>"+APPNAME+"</H1></TD>\n")
+      +("<TD WIDTH=\"30%\" ALIGN=RIGHT>\n")
+      +("<B>mode:</B>\n")
+      +("<INPUT TYPE=RADIO NAME=\"formmode\" VALUE=\"normal\" onClick=\"go_changemode(document.mainform)\" "+formmode_normal+">normal\n")
+      +("<INPUT TYPE=RADIO NAME=\"formmode\" VALUE=\"expert\" onClick=\"go_changemode(document.mainform)\" "+formmode_expert+">expert\n")
+      +("<BUTTON TYPE=BUTTON onClick=\"void window.open('"+response.encodeURL(SERVLETNAME)+"?help=TRUE','helpwin','width=600,height=400,scrollbars=1,resizable=1')\"><B>Help</B></BUTTON>\n")
+      +("<BUTTON TYPE=BUTTON onClick=\"go_demo(this.form, 'normal')\"><B>Demo</B></BUTTON>\n")
+      +("<BUTTON TYPE=BUTTON onClick=\"window.location.replace('"+response.encodeURL(SERVLETNAME)+"?formmode="+formmode+"')\"><B>Reset</B></BUTTON>\n")
+      +("</TD></TR></TABLE>\n")
+      +("<HR>\n")
+      +("<TABLE WIDTH=\"100%\" CELLPADDING=5 CELLSPACING=5>\n")
+      +("<TR BGCOLOR=\"#CCCCCC\"><TD VALIGN=TOP>\n")
+      +("<B>input:</B> fmt:"+molfmt_menu)
+      +("<INPUT TYPE=CHECKBOX NAME=\"file2txt\" VALUE=\"CHECKED\" "+params.getVal("file2txt")+">file2txt<BR>\n")
+      +("upload: <INPUT TYPE=\"FILE\" NAME=\"infile\"> ...or paste:\n")
+      +("<BR><TEXTAREA NAME=\"intxt\" WRAP=OFF ROWS=12 COLS=48>"+params.getVal("intxt")+"</TEXTAREA>\n")
+      +("</TD>\n")
+      +("<TD WIDTH=\"30%\" VALIGN=TOP>\n")
+      +("<B>smarts:</B> (select any combo):\n")
+      +("<TABLE WIDTH=\"100%\"><TR><TD WIDTH=\"50%\" VALIGN=TOP>")
+      +("<INPUT TYPE=CHECKBOX NAME=\"blakelint\" VALUE=\"CHECKED\" "+params.getVal("blakelint")+">Blake<BR>\n")
+      +("<INPUT TYPE=CHECKBOX NAME=\"glaxo\" VALUE=\"CHECKED\" "+params.getVal("glaxo")+">Glaxo<BR>\n")
+      +("<INPUT TYPE=CHECKBOX NAME=\"pains\" VALUE=\"CHECKED\" "+params.getVal("pains")+">PAINS<BR>\n")
+      +("</TD><TD VALIGN=TOP>\n")
+      +("<INPUT TYPE=CHECKBOX NAME=\"alarmnmr\" VALUE=\"CHECKED\" "+params.getVal("alarmnmr")+">ALARM NMR<BR>\n")
+      +("<INPUT TYPE=CHECKBOX NAME=\"oprea\" VALUE=\"CHECKED\" "+params.getVal("oprea")+">Oprea<BR>\n")
+      +("</TD></TR></TABLE>\n"));
     if (formmode.equals("expert"))
     {
-      htm+=("<TABLE WIDTH=\"100%\"><TR><TD WIDTH=\"50%\" VALIGN=TOP>");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"mlsmr_orig\" VALUE=\"CHECKED\" "+params.getVal("mlsmr_orig")+">MLSMR-original<BR>\n");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"mlsmr\" VALUE=\"CHECKED\" "+params.getVal("mlsmr")+">MLSMR-relaxed<BR>\n");
-      htm+=("</TD><TD VALIGN=TOP>\n");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"ursu\" VALUE=\"CHECKED\" "+params.getVal("ursu")+">Ursu-reactive<BR>\n");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"toxic\" VALUE=\"CHECKED\" "+params.getVal("toxic")+">toxicity<BR>\n");
-      htm+=("</TD></TR></TABLE>\n");
-      htm+=("... or upload: <INPUT TYPE=\"FILE\" NAME=\"infile_sma\"> ...or paste:\n");
-      htm+=("<BR><TEXTAREA NAME=\"intxt_sma\" WRAP=OFF ROWS=8 COLS=40>"+params.getVal("intxt_sma")+"</TEXTAREA>\n");
+      htm+=(("<TABLE WIDTH=\"100%\"><TR><TD WIDTH=\"50%\" VALIGN=TOP>")
+        +("<INPUT TYPE=CHECKBOX NAME=\"mlsmr_orig\" VALUE=\"CHECKED\" "+params.getVal("mlsmr_orig")+">MLSMR-original<BR>\n")
+        +("<INPUT TYPE=CHECKBOX NAME=\"mlsmr\" VALUE=\"CHECKED\" "+params.getVal("mlsmr")+">MLSMR-relaxed<BR>\n")
+        +("</TD><TD VALIGN=TOP>\n")
+        +("<INPUT TYPE=CHECKBOX NAME=\"ursu\" VALUE=\"CHECKED\" "+params.getVal("ursu")+">Ursu-reactive<BR>\n")
+        +("<INPUT TYPE=CHECKBOX NAME=\"toxic\" VALUE=\"CHECKED\" "+params.getVal("toxic")+">toxicity<BR>\n")
+        +("</TD></TR></TABLE>\n")
+        +("... or upload: <INPUT TYPE=\"FILE\" NAME=\"infile_sma\"> ...or paste:\n")
+        +("<BR><TEXTAREA NAME=\"intxt_sma\" WRAP=OFF ROWS=8 COLS=40>"+params.getVal("intxt_sma")+"</TEXTAREA>\n"));
     }
-    htm+=("</TD>\n");
-    htm+=("<TD VALIGN=TOP>\n");
-    htm+=("<B>runmode:</B><BR>\n");
-    htm+=("<INPUT TYPE=RADIO NAME=\"runmode\" VALUE=\"filter\" "+runmode_filter+">filter\n");
-    htm+=("&nbsp;<INPUT TYPE=RADIO NAME=\"runmode\" VALUE=\"analyze1mol\" "+runmode_analyze1mol+">analyze1mol<BR>\n");
-    htm+=("<HR>\n<B>output:</B><BR>\n");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"out_batch\" VALUE=\"CHECKED\" "+params.getVal("out_batch")+">batch &nbsp; fmt:");
-    htm+=("<INPUT TYPE=RADIO NAME=\"ofmt\" VALUE=\"smiles\" "+ofmt_smiles+">smiles\n");
-    htm+=("&nbsp;<INPUT TYPE=RADIO NAME=\"ofmt\" VALUE=\"sdf\" "+ofmt_sdf+">sdf<BR>\n");
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"out_view\" VALUE=\"CHECKED\" "+params.getVal("out_view")+">view ");
-    htm+=("&nbsp; <INPUT TYPE=CHECKBOX NAME=\"depict\" VALUE=\"CHECKED\" "+params.getVal("depict")+">depict<BR>\n");
+    htm+=(("</TD>\n")
+      +("<TD VALIGN=TOP>\n")
+      +("<B>runmode:</B><BR>\n")
+      +("<INPUT TYPE=RADIO NAME=\"runmode\" VALUE=\"filter\" "+runmode_filter+">filter\n")
+      +("&nbsp;<INPUT TYPE=RADIO NAME=\"runmode\" VALUE=\"analyze1mol\" "+runmode_analyze1mol+">analyze1mol<BR>\n")
+      +("<HR>\n<B>output:</B><BR>\n")
+      +("<INPUT TYPE=CHECKBOX NAME=\"out_batch\" VALUE=\"CHECKED\" "+params.getVal("out_batch")+">batch &nbsp; fmt:")
+      +("<INPUT TYPE=RADIO NAME=\"ofmt\" VALUE=\"smiles\" "+ofmt_smiles+">smiles\n")
+      +("&nbsp;<INPUT TYPE=RADIO NAME=\"ofmt\" VALUE=\"sdf\" "+ofmt_sdf+">sdf<BR>\n")
+      +("<INPUT TYPE=CHECKBOX NAME=\"out_view\" VALUE=\"CHECKED\" "+params.getVal("out_view")+">view ")
+      +("&nbsp; <INPUT TYPE=CHECKBOX NAME=\"depict\" VALUE=\"CHECKED\" "+params.getVal("depict")+">depict<BR>\n"));
     if (formmode.equals("expert"))
     {
-      htm+=("&nbsp; <INPUT TYPE=CHECKBOX NAME=\"showmatches\" VALUE=\"CHECKED\" "+params.getVal("showmatches")+">show matches<BR>\n");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"inc_pass\" VALUE=\"CHECKED\" "+params.getVal("inc_pass")+">include passes<BR>\n");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"inc_fail\" VALUE=\"CHECKED\" "+params.getVal("inc_fail")+">include fails<BR>\n");
-      htm+=("<INPUT TYPE=CHECKBOX NAME=\"fullann\" VALUE=\"CHECKED\" "+params.getVal("fullann")+">full annotation<BR>\n");
+      htm+=(("&nbsp; <INPUT TYPE=CHECKBOX NAME=\"showmatches\" VALUE=\"CHECKED\" "+params.getVal("showmatches")+">show matches<BR>\n")
+        +("<INPUT TYPE=CHECKBOX NAME=\"inc_pass\" VALUE=\"CHECKED\" "+params.getVal("inc_pass")+">include passes<BR>\n")
+        +("<INPUT TYPE=CHECKBOX NAME=\"inc_fail\" VALUE=\"CHECKED\" "+params.getVal("inc_fail")+">include fails<BR>\n")
+        +("<INPUT TYPE=CHECKBOX NAME=\"fullann\" VALUE=\"CHECKED\" "+params.getVal("fullann")+">full annotation<BR>\n"));
     }
     else
     {
-      htm+=("<INPUT TYPE=HIDDEN NAME=\"showmatches\" VALUE=\"CHECKED\">");
-      htm+=("<INPUT TYPE=HIDDEN NAME=\"inc_pass\" VALUE=\"CHECKED\">");
-      htm+=("<INPUT TYPE=HIDDEN NAME=\"fullann\" VALUE=\"CHECKED\">");
+      htm+=("<INPUT TYPE=HIDDEN NAME=\"showmatches\" VALUE=\"CHECKED\">")
+        +("<INPUT TYPE=HIDDEN NAME=\"inc_pass\" VALUE=\"CHECKED\">")
+        +("<INPUT TYPE=HIDDEN NAME=\"fullann\" VALUE=\"CHECKED\">");
     }
     htm+=("<HR>\n<B>misc:</B><BR>\n");
     if (formmode.equals("expert"))
     {
-      htm+=("arom:<INPUT TYPE=RADIO NAME=\"arom\" VALUE=\"gen\" "+arom_gen+">gen\n");
-      htm+=("&nbsp;<INPUT TYPE=RADIO NAME=\"arom\" VALUE=\"bas\" "+arom_bas+">bas\n");
-      htm+=("&nbsp;<INPUT TYPE=RADIO NAME=\"arom\" VALUE=\"none\" "+arom_none+">none<BR>\n");
+      htm+=("arom:<INPUT TYPE=RADIO NAME=\"arom\" VALUE=\"gen\" "+arom_gen+">gen\n")
+        +("&nbsp;<INPUT TYPE=RADIO NAME=\"arom\" VALUE=\"bas\" "+arom_bas+">bas\n")
+        +("&nbsp;<INPUT TYPE=RADIO NAME=\"arom\" VALUE=\"none\" "+arom_none+">none<BR>\n");
       if (stdizer_islicensed)
-      {
         htm+=("<INPUT TYPE=CHECKBOX NAME=\"fixmols\" VALUE=\"CHECKED\" "+params.getVal("fixmols")+">normalize mols<BR>\n");
-      }
       htm+=("<INPUT TYPE=CHECKBOX NAME=\"strict\" VALUE=\"CHECKED\" "+params.getVal("strict")+">strict uploaded smarts parsing<BR>\n");
     }
     else
@@ -648,20 +652,16 @@ public class smartsfilter_servlet extends HttpServlet
       htm+=("<INPUT TYPE=HIDDEN NAME=\"arom\" VALUE=\"gen\">\n");
     }
     if (formmode.equals("expert") && ENABLE_NOLIMIT)
-    {
       htm+=("<INPUT TYPE=CHECKBOX NAME=\"nolimit\" VALUE=\"CHECKED\" "+params.getVal("nolimit")+">no-limit, input size <I>(default: N_MAX="+N_MAX+")</I><BR>\n");
-    }
     else
-    {
       htm+=("<INPUT TYPE=HIDDEN NAME=\"nolimit\" VALUE=\"\">\n");
-    }
-    htm+=("<INPUT TYPE=CHECKBOX NAME=\"verbose\" VALUE=\"CHECKED\" "+params.getVal("verbose")+">verbose<BR>\n");
-    htm+=("</TD></TR></TABLE>\n");
-    htm+=("<P>\n");
-    htm+=("<CENTER>\n");
-    htm+=("<BUTTON TYPE=BUTTON onClick=\"go_smartsfilter(this.form,'"+formmode+"')\"><B>Go "+APPNAME+"</B></BUTTON>\n");
-    htm+=("</CENTER>\n");
-    htm+=("</FORM>\n");
+    htm+=("<INPUT TYPE=CHECKBOX NAME=\"verbose\" VALUE=\"CHECKED\" "+params.getVal("verbose")+">verbose<BR>\n")
+      +("</TD></TR></TABLE>\n")
+      +("<P>\n")
+      +("<CENTER>\n")
+      +("<BUTTON TYPE=BUTTON onClick=\"go_smartsfilter(this.form,'"+formmode+"')\"><B>Go "+APPNAME+"</B></BUTTON>\n")
+      +("</CENTER>\n")
+      +("</FORM>\n");
     return htm;
   }
   /////////////////////////////////////////////////////////////////////////////
@@ -808,7 +808,7 @@ public class smartsfilter_servlet extends HttpServlet
         boolean ok=dout.mkdir();
         System.err.println("SCRATCHDIR creation "+(ok?"succeeded":"failed")+": "+SCRATCHDIR);
       }
-      fout=File.createTempFile(PREFIX,"_out."+params.getVal("ofmt"),dout);
+      fout=File.createTempFile(TMPFILE_PREFIX,"_out."+params.getVal("ofmt"),dout);
     }
     catch (IOException e) {
       errors.add("ERROR: could not open temp file; check SCRATCHDIR: "+SCRATCHDIR);
@@ -1052,8 +1052,26 @@ public class smartsfilter_servlet extends HttpServlet
   /////////////////////////////////////////////////////////////////////////////
   private static String JavaScript()
   {
-    return(
-"function go_smartsfilter(form,formmode)\n"+
+    String DEMO_DATASET = (
+"CN1C(=O)N(C)C(=O)C(N(C)C=N2)=C12 caffeine\n"+
+"COc1cc2c(ccnc2cc1)C(O)C4CC(CC3)C(C=C)CN34 quinine\n"+
+"CC1(C)SC2C(NC(=O)Cc3ccccc3)C(=O)N2C1C(=O)O benzylpenicillin\n"+
+"CCC(=C(c1ccc(OCCN(C)C)cc1)c1ccccc1)c1ccccc1 Tamoxifen\n"+
+"CNCCC(c1ccccc1)Oc2ccc(cc2)C(F)(F)F.Cl Prozac\n"+
+"NC(C)Cc1ccccc1 adderall\n"+
+"CNC(=C[N+](=O)[O-])NCCSCC1=CC=C(O1)CN(C)C.Cl Zantac\n"+
+"Oc2cc(cc1OC(C3CCC(=CC3c12)C)(C)C)CCCCC THC\n"+
+"CC(=CCO)C=CC=C(C)C=CC1=C(C)CCC1(C)C Vitamin A\n"+
+"Oc1cccc(C=Cc2cc(O)cc(O)c2)c1 resveratrol\n"+
+"CCOC(=O)C1=CC(OC(CC)CC)C(NC(C)=O)C(N)C1 Tamiflu\n"+
+"OC(=O)CC(O)(CC(O)=O)C(O)=O.CCCc1nn(C)c2c1NC(=NC2=O)c1cc(ccc1OCC)S(=O)(=O)N1CCN(C)CC1 Viagra\n"+
+"COc1cc(C=CC(=O)CC(=O)C=Cc2ccc(O)c(OC)c2)ccc1O Curcumin\n"+
+"COC1CC(CCC1O)C=C(C)C1OC(=O)C2CCCCN2C(=O)C(=O)C2(O)OC(C(CC2C)OC)C(CC(C)CC(C)=CC(CC=C)C(=O)CC(O)C1C)OC Tacrolimus\n"+
+"CC12CC(=O)C3C(CCC4=CC(=O)CCC34C)C1CCC2(O)C(=O)CO Cortisone\n"+
+"CN1c2ccc(cc2C(=NCC1=O)c3ccccc3)Cl Valium\n");
+    String js = (
+"var DEMO_DATASET=`"+DEMO_DATASET+"`;\n"+
+"function go_smartsfilter(form, formmode)\n"+
 "{\n"+
 "  if (!checkform(form,formmode)) return;\n"+
 "  var runmode;\n"+
@@ -1089,6 +1107,17 @@ public class smartsfilter_servlet extends HttpServlet
 "  }\n"+
 "  form.filter.value='TRUE';\n"+
 "  form.submit();\n"+
+"}\n"+
+"function go_demo(form, formmode)\n"+
+"{\n"+
+"  go_init(form, formmode, false);\n"+
+"  form.intxt.value=DEMO_DATASET;\n"+
+"  form.depict.checked=true;\n"+
+"  form.glaxo.checked=true;\n"+
+"  form.pains.checked=true;\n"+
+"  form.oprea.checked=true;\n"+
+"  form.alarmnmr.checked=true;\n"+
+"  go_smartsfilter(form, formmode);\n"+
 "}\n"+
 "function go_changemode(form)\n"+
 "{\n"+
@@ -1132,7 +1161,7 @@ public class smartsfilter_servlet extends HttpServlet
 "  }\n"+
 "  return 1;\n"+
 "}\n"+
-"function go_reset(form,formmode,changemode)\n"+
+"function go_init(form, formmode, changemode)\n"+
 "{\n"+
 "  if (formmode=='expert')\n"+
 "  {\n"+
@@ -1174,6 +1203,7 @@ public class smartsfilter_servlet extends HttpServlet
 "  form.verbose.checked=false;\n"+
 "}\n"
     );
+    return js;
   }
   /////////////////////////////////////////////////////////////////////////////
   private static String HelpHtm()
