@@ -27,7 +27,6 @@ import edu.unm.health.biocomp.util.threads.*;
 
 /**	SMARTS based filtering application.
 	Note: Must add &lt;load-on-startup/&gt; to web.xml for smarts pre-load.
-
 	@author Jeremy J Yang
 */
 public class smartsfilter_servlet extends HttpServlet
@@ -79,158 +78,156 @@ public class smartsfilter_servlet extends HttpServlet
   private static String PROXY_PREFIX=null;	// configured in web.xml
 
   /////////////////////////////////////////////////////////////////////////////
-  public void doPost(HttpServletRequest request,HttpServletResponse response)
-      throws IOException,ServletException
+  public void doPost(HttpServletRequest request,HttpServletResponse response) throws IOException,ServletException
   {
-    //SERVERPORT=request.getServerPort();
-    SERVERNAME=request.getServerName();
-    if (SERVERNAME.equals("localhost")) SERVERNAME=InetAddress.getLocalHost().getHostAddress();
-    REMOTEHOST=request.getHeader("X-Forwarded-For"); // client (original)
+    //SERVERPORT = request.getServerPort();
+    SERVERNAME = request.getServerName();
+    if (SERVERNAME.equals("localhost")) SERVERNAME = InetAddress.getLocalHost().getHostAddress();
+    REMOTEHOST = request.getHeader("X-Forwarded-For"); // client (original)
     if (REMOTEHOST!=null)
     {
-      String[] addrs=Pattern.compile(",").split(REMOTEHOST);
-      if (addrs.length>0) REMOTEHOST=addrs[addrs.length-1];
+      String[] addrs = Pattern.compile(",").split(REMOTEHOST);
+      if (addrs.length>0) REMOTEHOST = addrs[addrs.length-1];
     }
     else
     {
-      REMOTEHOST=request.getRemoteAddr(); // client (may be proxy)
+      REMOTEHOST = request.getRemoteAddr(); // client (may be proxy)
     }
 
-    CONTEXTPATH=request.getContextPath();
-    rb=ResourceBundle.getBundle("LocalStrings",request.getLocale());
+    CONTEXTPATH = request.getContextPath();
+    rb = ResourceBundle.getBundle("LocalStrings", request.getLocale());
 
     MultipartRequest mrequest=null;
     if (request.getMethod().equalsIgnoreCase("POST"))
     {
-      try { mrequest=new MultipartRequest(request,UPLOADDIR,MAX_POST_SIZE,"ISO-8859-1",
+      try { mrequest = new MultipartRequest(request, UPLOADDIR, MAX_POST_SIZE, "ISO-8859-1",
 	new DefaultFileRenamePolicy()); }
-      catch (IOException lEx) { this.getServletContext().log("not a valid MultipartRequest",lEx); }
+      catch (IOException lEx) { this.getServletContext().log("not a valid MultipartRequest", lEx); }
     }
 
     // main logic:
     ArrayList<String> cssincludes = new ArrayList<String>(Arrays.asList(PROXY_PREFIX+CONTEXTPATH+"/css/biocomp.css"));
     ArrayList<String> jsincludes = new ArrayList<String>(Arrays.asList(PROXY_PREFIX+CONTEXTPATH+"/js/biocomp.js", PROXY_PREFIX+CONTEXTPATH+"/js/ddtip.js"));
     boolean ok=false;
-    ok=initialize(request,mrequest);
+    ok = initialize(request, mrequest);
     if (mrequest!=null)		//method=POST, normal operation
     {
       if (!ok)
       {
         response.setContentType("text/html");
-        out=response.getWriter();
+        out = response.getWriter();
         out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
-        out.println(FormHtm(mrequest,response,params.getVal("formmode")));
-        out.print(HtmUtils.FooterHtm(errors,true));
+        out.println(FormHtm(mrequest, response, params.getVal("formmode")));
+        out.print(HtmUtils.FooterHtm(errors, true));
         return;
       }
       else if (mrequest.getParameter("changemode").equalsIgnoreCase("TRUE"))
       {
         response.setContentType("text/html");
-        out=response.getWriter();
+        out = response.getWriter();
         out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
-        out.println(FormHtm(mrequest,response,params.getVal("formmode")));
+        out.println(FormHtm(mrequest, response, params.getVal("formmode")));
         out.println("<SCRIPT LANGUAGE=\"JavaScript\">go_init(window.document.mainform,'"+params.getVal("formmode")+"',true)</SCRIPT>");
-        out.print(HtmUtils.FooterHtm(errors,true));
+        out.print(HtmUtils.FooterHtm(errors, true));
       }
       else if (mrequest.getParameter("filter").equals("TRUE"))
       {
         if (mrequest.getParameter("runmode").equals("filter"))
         {
           response.setContentType("text/html");
-          out=response.getWriter();
+          out = response.getWriter();
           out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
-          out.println(FormHtm(mrequest,response,params.getVal("formmode")));
+          out.println(FormHtm(mrequest, response, params.getVal("formmode")));
           Date t_i = new Date();
 
-          Vector<SmartsfilterResult> results = Smartsfilter_LaunchThread(this.molReader,mrequest,response,params);
-          Smartsfilter_Results(results,this.molReader,mrequest,response,params);
+          Vector<SmartsfilterResult> results = Smartsfilter_LaunchThread(this.molReader, mrequest, response, params);
+          Smartsfilter_Results(results, this.molReader, mrequest, response, params);
           out.println("<SCRIPT>pwin.parent.focus(); pwin.focus(); pwin.close();</SCRIPT>");
 
           Date t_f = new Date();
-          long t_d=t_f.getTime()-t_i.getTime();
+          long t_d = t_f.getTime()-t_i.getTime();
           int t_d_min = (int)(t_d/60000L);
           int t_d_sec = (int)((t_d/1000L)%60L);
           errors.add(SERVLETNAME+": elapsed time: "+t_d_min+"m "+t_d_sec+"s");
           out.print(HtmUtils.OutputHtm(outputs));
-          out.print(HtmUtils.FooterHtm(errors,true));
-          HtmUtils.PurgeScratchDirs(Arrays.asList(SCRATCHDIR),scratch_retire_sec,false,".",(HttpServlet) this);
+          out.print(HtmUtils.FooterHtm(errors, true));
+          HtmUtils.PurgeScratchDirs(Arrays.asList(SCRATCHDIR), scratch_retire_sec, false, ".", (HttpServlet) this);
         }
         else if (mrequest.getParameter("runmode").equals("analyze1mol"))
         {
           response.setContentType("text/html");
-          out=response.getWriter();
+          out = response.getWriter();
           out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
-          out.println(FormHtm(mrequest,response,params.getVal("formmode")));
-          Analyze1mol(this.molReader,params);
+          out.println(FormHtm(mrequest, response, params.getVal("formmode")));
+          Analyze1mol(this.molReader, params);
           out.print(HtmUtils.OutputHtm(outputs));
-          out.print(HtmUtils.FooterHtm(errors,true));
+          out.print(HtmUtils.FooterHtm(errors, true));
         }
       }
     }
     else
     {
       
-      String downloadtxt=request.getParameter("downloadtxt"); // POST param
-      String downloadfile=request.getParameter("downloadfile"); // POST param
+      String downloadtxt = request.getParameter("downloadtxt"); // POST param
+      String downloadfile = request.getParameter("downloadfile"); // POST param
       if (request.getParameter("help")!=null)	// GET method, help=TRUE
       {
         response.setContentType("text/html");
-        out=response.getWriter();
+        out = response.getWriter();
         out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
         out.print(HelpHtm());
-        out.print(HtmUtils.FooterHtm(errors,true));
+        out.print(HtmUtils.FooterHtm(errors, true));
       }
       else if (request.getParameter("test")!=null)	// GET method, test=TRUE
       {
         response.setContentType("text/plain");
-        out=response.getWriter();
+        out = response.getWriter();
         HashMap<String,String> t = new HashMap<String,String>();
-        t.put("JCHEM_LICENSE_OK",(LicenseManager.isLicensed(LicenseManager.JCHEM)?"True":"False"));
-        t.put("JCHEM_MOLSEARCH_LICENSE_OK",(((new MolSearch()).isLicensed())?"True":"False"));
-        out.print(HtmUtils.TestTxt(APPNAME,t));
+        t.put("JCHEM_LICENSE_OK", (LicenseManager.isLicensed(LicenseManager.JCHEM)?"True":"False"));
+        t.put("JCHEM_MOLSEARCH_LICENSE_OK", (((new MolSearch()).isLicensed())?"True":"False"));
+        out.print(HtmUtils.TestTxt(APPNAME, t));
       }
       else if (downloadtxt!=null && downloadtxt.length()>0) // POST param
       {
-        ServletOutputStream ostream=response.getOutputStream();
-        HtmUtils.DownloadString(response,ostream,downloadtxt,request.getParameter("fname"));
+        ServletOutputStream ostream = response.getOutputStream();
+        HtmUtils.DownloadString(response, ostream, downloadtxt, request.getParameter("fname"));
       }
       else if (downloadfile!=null && downloadfile.length()>0) // POST param
       {
-        ServletOutputStream ostream=response.getOutputStream();
-        HtmUtils.DownloadFile(response,ostream,downloadfile,request.getParameter("fname"));
+        ServletOutputStream ostream = response.getOutputStream();
+        HtmUtils.DownloadFile(response, ostream, downloadfile, request.getParameter("fname"));
       }
       else	// GET method, initial invocation of servlet
       {
         response.setContentType("text/html");
-        out=response.getWriter();
+        out = response.getWriter();
         out.print(HtmUtils.HeaderHtm(APPNAME, jsincludes, cssincludes, JavaScript(), "", color1, request));
-        out.println(FormHtm(mrequest,response,request.getParameter("formmode")));
+        out.println(FormHtm(mrequest, response, request.getParameter("formmode")));
         out.println("<SCRIPT>go_init(window.document.mainform,'"+request.getParameter("formmode")+"',false)</SCRIPT>");
-        out.print(HtmUtils.FooterHtm(errors,true));
+        out.print(HtmUtils.FooterHtm(errors, true));
       }
     }
   }
   /////////////////////////////////////////////////////////////////////////////
-  private boolean initialize(HttpServletRequest request, MultipartRequest mrequest)
-      throws IOException,ServletException
+  private boolean initialize(HttpServletRequest request, MultipartRequest mrequest) throws IOException,ServletException
   {
-    SERVLETNAME=this.getServletName();
-    PROGRESS_WIN_NAME=(SERVLETNAME+"_progress_win");
+    SERVLETNAME = this.getServletName();
+    PROGRESS_WIN_NAME = (SERVLETNAME+"_progress_win");
     params.clear();
     outputs.clear();
     errors.clear();
-    SMI2IMG_SERVLETURL=(PROXY_PREFIX+CONTEXTPATH+"/mol2img");
+    SMI2IMG_SERVLETURL = (PROXY_PREFIX+CONTEXTPATH+"/mol2img");
 
-    String logo_htm="<TABLE CELLSPACING=5 CELLPADDING=5><TR><TD>";
-    String imghtm=("<IMG BORDER=0 SRC=\""+PROXY_PREFIX+CONTEXTPATH+"/images/biocomp_logo_only.gif\">");
-    String tiphtm=(APPNAME+" web app from UNM Translational Informatics.");
-    String href=("http://medicine.unm.edu/informatics/");
-    logo_htm+=(HtmUtils.HtmTipper(imghtm,tiphtm,href,200,"white"));
+    String logo_htm = "<TABLE CELLSPACING=5 CELLPADDING=5><TR><TD>";
+    String imghtm = ("<IMG BORDER=0 SRC=\""+PROXY_PREFIX+CONTEXTPATH+"/images/biocomp_logo_only.gif\">");
+    String tiphtm = (APPNAME+" web app from UNM Translational Informatics.");
+    String href = ("http://medicine.unm.edu/informatics/");
+    logo_htm+=(HtmUtils.HtmTipper(imghtm, tiphtm, href, 200, "white"));
     logo_htm+="</TD><TD>";
-    imghtm=("<IMG BORDER=0 SRC=\""+PROXY_PREFIX+CONTEXTPATH+"/images/chemaxon_powered_100px.png\">");
-    tiphtm=("JChem and Marvin from ChemAxon Ltd.");
-    href=("http://www.chemaxon.com");
-    logo_htm+=(HtmUtils.HtmTipper(imghtm,tiphtm,href,200,"white"));
+    imghtm = ("<IMG BORDER=0 SRC=\""+PROXY_PREFIX+CONTEXTPATH+"/images/chemaxon_powered_100px.png\">");
+    tiphtm = ("JChem and Marvin from ChemAxon Ltd.");
+    href = ("http://www.chemaxon.com");
+    logo_htm+=(HtmUtils.HtmTipper(imghtm, tiphtm, href, 200, "white"));
     logo_htm+="</TD></TR></TABLE>";
     errors.add(logo_htm);
 
@@ -263,11 +260,11 @@ public class smartsfilter_servlet extends HttpServlet
 
     if (mrequest==null) return false;
 
-    for (Enumeration e=mrequest.getParameterNames(); e.hasMoreElements(); )
+    for (Enumeration e = mrequest.getParameterNames(); e.hasMoreElements(); )
     {
-      String key=(String)e.nextElement();
+      String key = (String)e.nextElement();
       if (mrequest.getParameter(key)!=null)
-        params.setVal(key,mrequest.getParameter(key));
+        params.setVal(key, mrequest.getParameter(key));
     }
 
     if (params.isChecked("verbose"))
@@ -295,71 +292,71 @@ public class smartsfilter_servlet extends HttpServlet
 
     /// Stuff for a run:
 
-    Integer arom=(params.getVal("arom").equals("gen"))?MoleculeGraph.AROM_GENERAL:((params.getVal("arom").equals("bas"))?MoleculeGraph.AROM_BASIC:null);
+    Integer arom = (params.getVal("arom").equals("gen"))?MoleculeGraph.AROM_GENERAL:((params.getVal("arom").equals("bas"))?MoleculeGraph.AROM_BASIC:null);
 
     if (params.isChecked("nolimit"))
     {
       N_MAX=0;
-      MAX_POST_SIZE=Integer.MAX_VALUE;
+      MAX_POST_SIZE = Integer.MAX_VALUE;
     }
 
     String fname="infile";
-    File fileDB=mrequest.getFile(fname);
-    String intxtDB=params.getVal("intxt").replaceFirst("[\\s]+$","");
+    File fileDB = mrequest.getFile(fname);
+    String intxtDB = params.getVal("intxt").replaceFirst("[\\s]+$", "");
     int max_intxt_lines=5000;
     String line=null;
     if (fileDB!=null)
     {
       if (params.isChecked("file2txt") && fileDB!=null)
       {
-        BufferedReader br=new BufferedReader(new FileReader(fileDB));
+        BufferedReader br = new BufferedReader(new FileReader(fileDB));
         intxtDB="";
         int i=0;
-        for ( ;(line=br.readLine())!=null;++i)
+        for ( ;(line = br.readLine())!=null;++i)
         {
           intxtDB+=(line+"\n");
         }
         if (i>=max_intxt_lines)
         {
           errors.add("ERROR: input file too large, NOT copied to input (>="+max_intxt_lines+" lines)");
-          params.setVal("intxt","");
+          params.setVal("intxt", "");
         }
         else
         {
-          params.setVal("intxt",intxtDB);
+          params.setVal("intxt", intxtDB);
         }
       }
       else
       {
-        params.setVal("intxt","");
+        params.setVal("intxt", "");
       }
     }
     if (params.getVal("molfmt").equals("automatic"))
     {
-      String orig_fname=mrequest.getOriginalFileName(fname);
-      String ifmt_auto=MFileFormatUtil.getMostLikelyMolFormat(orig_fname);
+      String orig_fname = mrequest.getOriginalFileName(fname);
+      String ifmt_auto = MFileFormatUtil.getMostLikelyMolFormat(orig_fname);
       if (orig_fname!=null && ifmt_auto!=null)
       {
         if (fileDB!=null)
-          this.molReader=new MolImporter(fileDB,ifmt_auto);
+          this.molReader = new MolImporter(fileDB, ifmt_auto);
         else if (intxtDB.length()>0)
-          this.molReader=new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()),ifmt_auto);
+          this.molReader = new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()), ifmt_auto);
       }
       else
       {
         if (fileDB!=null)
-          this.molReader=new MolImporter(new FileInputStream(fileDB));
+          this.molReader = new MolImporter(new FileInputStream(fileDB));
         else if (intxtDB.length()>0)
-          this.molReader=new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()));
+          this.molReader = new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()));
       }
     }
     else
     {
-      String ifmt=params.getVal("molfmt");
+      String ifmt = params.getVal("molfmt");
       if (fileDB!=null)
-        this.molReader=new MolImporter(new FileInputStream(fileDB),ifmt);
+        this.molReader = new MolImporter(new FileInputStream(fileDB), ifmt);
       else if (intxtDB.length()>0)
-        this.molReader=new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()),ifmt);
+        this.molReader = new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()), ifmt);
     }
     if (this.molReader==null) { errors.add("ERROR: MolImporter==null."); return false; }
     int n_mol_estimate = EstimateNumRecords(this.molReader);
@@ -369,12 +366,12 @@ public class smartsfilter_servlet extends HttpServlet
     }
     if (params.isChecked("verbose"))
     {
-      String ifmt=this.molReader.getFormat();
+      String ifmt = this.molReader.getFormat();
       MFileFormat mffmt = MFileFormatUtil.getFormat(ifmt); //null if ifmt "SDF:V3" (JChem 6.3.1 bug?)
       errors.add("input format:  "+ifmt+((mffmt!=null)?(" ("+mffmt.getDescription()+")"):""));
     }
 
-    ArrayList<String> smartsfnames=new ArrayList<String>();
+    ArrayList<String> smartsfnames = new ArrayList<String>();
     if (params.isChecked("glaxo"))
       smartsfnames.addAll(Arrays.asList(glaxo_files));
     if (params.isChecked("ursu"))
@@ -394,16 +391,16 @@ public class smartsfilter_servlet extends HttpServlet
     if (params.isChecked("pains"))
       smartsfnames.addAll(Arrays.asList(pains_files));
 
-    File file_sma=mrequest.getFile("infile_sma");
-    String intxt_sma=params.getVal("intxt_sma").replaceFirst("[\\s]+$","");
+    File file_sma = mrequest.getFile("infile_sma");
+    String intxt_sma = params.getVal("intxt_sma").replaceFirst("[\\s]+$", "");
 
-    smartsFile=new SmartsFile();	// the accumulator
+    smartsFile = new SmartsFile();	// the accumulator
     if (smartsfnames.size()>0)	// canned files
     {
       for (int i=0;i<smartsfnames.size();++i)
       {
-        String smartsfname=smartsfnames.get(i);
-        SmartsFile sf=SMARTSFILES.get(smartsfname);
+        String smartsfname = smartsfnames.get(i);
+        SmartsFile sf = SMARTSFILES.get(smartsfname);
         if (sf==null)
         {
           errors.add("ERROR: smartsfile not loaded: "+smartsfname);
@@ -427,23 +424,23 @@ public class smartsfilter_servlet extends HttpServlet
     }
     if (file_sma!=null)	// custom: uploaded file
     {
-      String orig_smarts_fname=mrequest.getOriginalFileName("infile_sma");
+      String orig_smarts_fname = mrequest.getOriginalFileName("infile_sma");
       try {
-        SmartsFile sf=new SmartsFile();
-        sf.parseFile(file_sma,params.isChecked("strict"),orig_smarts_fname);
+        SmartsFile sf = new SmartsFile();
+        sf.parseFile(file_sma, params.isChecked("strict"), orig_smarts_fname);
         smartsFile.mergeFiles(sf);
       }
       catch (Exception e) {
         errors.add("Exception: "+e.getMessage());
         return false;
       }
-      params.setVal("intxt_sma",smartsFile.getRawtxt());
+      params.setVal("intxt_sma", smartsFile.getRawtxt());
     }
     else if (intxt_sma.length()>0)	// custom: pasted file
     {
       try {
-        SmartsFile sf=new SmartsFile();
-        sf.parseFile(intxt_sma,params.isChecked("strict"),"custom");
+        SmartsFile sf = new SmartsFile();
+        sf.parseFile(intxt_sma, params.isChecked("strict"), "custom");
         smartsFile.mergeFiles(sf);
       }
       catch (Exception e) {
@@ -464,21 +461,21 @@ public class smartsfilter_servlet extends HttpServlet
       String smirks="";
       for (int i=0;i<STD_SMIRKSES.length;++i)
       {
-        smirks=STD_SMIRKSES[i];
+        smirks = STD_SMIRKSES[i];
         if (smirks.indexOf(" ")>0)
         {
-          name=smirks.substring(smirks.indexOf(" ")+1);
-          smirks=smirks.replace("\\s.*$","");
+          name = smirks.substring(smirks.indexOf(" ")+1);
+          smirks = smirks.replace("\\s.*$", "");
         }
         else
         {
-          name=String.format("%d",i);
+          name = String.format("%d", i);
         }
         xml+="<Transformation ID=\""+name+"\" Structure=\""+smirks+"\"/>";
       }
-      xml=("<?xml version=\"1.0\" encoding=\"UTF-8\"?><StandardizerConfiguration Version =\"0.1\"><Actions>"+
+      xml = ("<?xml version=\"1.0\" encoding=\"UTF-8\"?><StandardizerConfiguration Version =\"0.1\"><Actions>"+
         xml+"</Actions></StandardizerConfiguration>");
-      try { stdizer=new Standardizer(xml); }
+      try { stdizer = new Standardizer(xml); }
       catch (StandardizerException e) { errors.add("StandardizerException: "+e.getMessage()); }
     }
 
@@ -495,47 +492,45 @@ public class smartsfilter_servlet extends HttpServlet
 	throws IOException
   {
     molReader.setThreadCount(1);
-    long pos=molReader.tell();
+    long pos = molReader.tell();
     int n_est=0;
     Molecule mol;
     if (molReader.isRewindable())
     {
       for (int i=0;i<100;++i)
       {
-        try { mol=molReader.read(); }
+        try { mol = molReader.read(); }
         catch (MolFormatException e) { continue; }
         //catch (IOException e) { continue; }
         if (mol==null) break;
       }
-      n_est=molReader.estimateNumRecords();
-      try { molReader.seekRecord((int)pos,null); }
+      n_est = molReader.estimateNumRecords();
+      try { molReader.seekRecord((int)pos, null); }
       catch (Exception e) { errors.add("Warning: (EstimateNumRecords): "+e.getMessage()); }
     }
     return n_est;
   }
   /////////////////////////////////////////////////////////////////////////////
-  private static MolImporter RewindMolReader(MolImporter molReader,MultipartRequest mrequest,HttpParams params)
-	throws IOException
+  private static MolImporter RewindMolReader(MolImporter molReader, MultipartRequest mrequest, HttpParams params) throws IOException
   {
     if (molReader.isRewindable())
     {
-      molReader.seekRecord(0,null);
+      molReader.seekRecord(0, null);
     }
     else
     {
       String ifmt = molReader.getFormat();
       molReader.close();
       String fname="infile";
-      File fileDB=mrequest.getFile(fname);
-      String intxtDB=params.getVal("intxt").replaceFirst("[\\s]+$","");
-      MolImporter molReader_new = (fileDB!=null)?(new MolImporter(fileDB,ifmt)):((intxtDB.length()>0)?(new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()),ifmt)):null);
+      File fileDB = mrequest.getFile(fname);
+      String intxtDB = params.getVal("intxt").replaceFirst("[\\s]+$", "");
+      MolImporter molReader_new = (fileDB!=null)?(new MolImporter(fileDB, ifmt)):((intxtDB.length()>0)?(new MolImporter(new ByteArrayInputStream(intxtDB.getBytes()), ifmt)):null);
       molReader = molReader_new;
     }
     return molReader;
   }
   /////////////////////////////////////////////////////////////////////////////
-  private static String FormHtm(MultipartRequest mrequest,HttpServletResponse response,String formmode)
-      throws IOException,ServletException
+  private static String FormHtm(MultipartRequest mrequest, HttpServletResponse response, String formmode) throws IOException,ServletException
   {
     if (formmode==null) formmode="normal";
     String formmode_normal=""; String formmode_expert="";
@@ -543,15 +538,15 @@ public class smartsfilter_servlet extends HttpServlet
     else if (formmode.equals("normal")) formmode_normal="CHECKED";
     else formmode_normal="CHECKED";
 
-    String molfmt_menu="<SELECT NAME=\"molfmt\">\n";
+    String molfmt_menu = "<SELECT NAME=\"molfmt\">\n";
     molfmt_menu+=("<OPTION VALUE=\"automatic\">automatic\n");
     for (String fmt: MFileFormatUtil.getMolfileFormats())
     {
-      String desc=MFileFormatUtil.getFormat(fmt).getDescription();
+      String desc = MFileFormatUtil.getFormat(fmt).getDescription();
       molfmt_menu+=("<OPTION VALUE=\""+fmt+"\">"+desc+"\n");
     }
     molfmt_menu+=("</SELECT>");
-    molfmt_menu=molfmt_menu.replace("\""+params.getVal("molfmt")+"\">","\""+params.getVal("molfmt")+"\" SELECTED>");
+    molfmt_menu = molfmt_menu.replace("\""+params.getVal("molfmt")+"\">", "\""+params.getVal("molfmt")+"\" SELECTED>");
 
     String arom_gen=""; String arom_bas=""; String arom_none="";
     if (params.getVal("arom").equals("gen")) arom_gen="CHECKED";
@@ -665,32 +660,31 @@ public class smartsfilter_servlet extends HttpServlet
     return htm;
   }
   /////////////////////////////////////////////////////////////////////////////
-  private static void Analyze1mol(MolImporter molReader,HttpParams params)
-      throws IOException, ServletException
+  private static void Analyze1mol(MolImporter molReader, HttpParams params) throws IOException, ServletException
   {
     int w=240;
     int h=180;
-    String depopts=("mode=cow");
+    String depopts = ("mode=cow");
     depopts+=("&imgfmt=png");
     if (params.getVal("arom").equals("gen")) depopts+=("&arom_gen=true");
     else if (params.getVal("arom").equals("bas")) depopts+=("&arom_bas=true");
     else if (params.getVal("arom").equals("none")) depopts+=("&kekule=true");
 
     Molecule mol=null;
-    try { mol=molReader.read(); }
+    try { mol = molReader.read(); }
     catch (MolFormatException e) {
       errors.add("ERROR: "+e.getMessage());
       return;
     }
 
-    Integer arom=(params.getVal("arom").equals("gen"))?MoleculeGraph.AROM_GENERAL:((params.getVal("arom").equals("bas"))?MoleculeGraph.AROM_BASIC:null);
+    Integer arom = (params.getVal("arom").equals("gen"))?MoleculeGraph.AROM_GENERAL:((params.getVal("arom").equals("bas"))?MoleculeGraph.AROM_BASIC:null);
 
     if (arom!=null)
       mol.aromatize(arom);
     else
       mol.dearomatize();
 
-    String smiles=MolExporter.exportToFormat(mol,"smiles:");
+    String smiles = MolExporter.exportToFormat(mol, "smiles:");
     String origsmiles=smiles;
     if (params.isChecked("fixmols"))
     {
@@ -699,29 +693,29 @@ public class smartsfilter_servlet extends HttpServlet
       { errors.add("StandardizerException:"+e.getMessage()); }
       catch (SearchException e)
       { errors.add("SearchException: :"+e.getMessage()); }
-      smiles=MolExporter.exportToFormat(mol,"smiles:");
+      smiles = MolExporter.exportToFormat(mol, "smiles:");
       if (params.isChecked("verbose"))
       {
         errors.add("normalization: "+origsmiles+" &gt;&gt; "+smiles);
       }
     }
 
-    String imghtm=HtmUtils.Smi2ImgHtm(smiles,depopts,h,w,SMI2IMG_SERVLETURL,true,4,"go_zoom_smi2img");
+    String imghtm = HtmUtils.Smi2ImgHtm(smiles, depopts, h, w, SMI2IMG_SERVLETURL, true, 4, "go_zoom_smi2img");
 
     outputs.add("molecule: <B>"+mol.getName()+"</B>");
     if (params.isChecked("depict"))
       outputs.add(imghtm+"\n");
 
-    String thtm=("<TABLE BORDER>\n");
+    String thtm = ("<TABLE BORDER>\n");
     thtm+=("<TR><TH>&nbsp;</TH><TH>match</TH><TH>pattern name</TH><TH>group</TH></TR>\n");
     int n_matches=0;
     for (int i=0;i<smartsFile.size();++i)
     {
-      Smarts smrt=smartsFile.getSmarts(i);
+      Smarts smrt = smartsFile.getSmarts(i);
       boolean hit=false;
       try {
         smrt.getSearch().setTarget(mol);
-        hit=smrt.getSearch().isMatching();
+        hit = smrt.getSearch().isMatching();
       }
       catch (SearchException e) {
         errors.add("SearchException: "+e);
@@ -736,21 +730,21 @@ public class smartsfilter_servlet extends HttpServlet
       else
         thtm+="<TR>";
       thtm+="<TD VALIGN=TOP>"+(i+1)+". </TD>\n";
-      String smahtm=("<TT>"+smrt.getRawsmarts()+"</TT>");
+      String smahtm = ("<TT>"+smrt.getRawsmarts()+"</TT>");
       if (!smrt.getSmarts().equals(smrt.getRawsmarts()))
         smahtm+=("<BR><I>"+smrt.getSmarts()+"</I>");
       if (hit)
       {
-        String opts=(depopts+"&smartscode="+URLEncoder.encode(smrt.getSmarts(),"UTF-8"));
-        imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,SMI2IMG_SERVLETURL,false,4,null);
-        thtm+=("<TD ALIGN=CENTER VALIGN=TOP><TT>"+HtmUtils.HtmTipper("<B>yes</B>",imghtm,w,"white")+"</TT></TD>\n");
+        String opts = (depopts+"&smartscode="+URLEncoder.encode(smrt.getSmarts(), "UTF-8"));
+        imghtm = HtmUtils.Smi2ImgHtm(smiles, opts, h, w, SMI2IMG_SERVLETURL, false, 4, null);
+        thtm+=("<TD ALIGN=CENTER VALIGN=TOP><TT>"+HtmUtils.HtmTipper("<B>yes</B>", imghtm, w, "white")+"</TT></TD>\n");
         ++n_matches;
       }
       else
       {
         thtm+="<TD ALIGN=CENTER VALIGN=TOP><I>no</I></TD>\n";
       }
-      thtm+=("<TD VALIGN=TOP>"+HtmUtils.HtmTipper(smrt.getName(),smahtm,200,"yellow")+"</TD>\n");
+      thtm+=("<TD VALIGN=TOP>"+HtmUtils.HtmTipper(smrt.getName(), smahtm, 200, "yellow")+"</TD>\n");
       thtm+=("<TD>"+smrt.getGroupname()+"</TD>\n");
       thtm+="</TD></TR>\n";
     }
@@ -767,16 +761,13 @@ public class smartsfilter_servlet extends HttpServlet
     outputs.add(thtm);
   }
   /////////////////////////////////////////////////////////////////////////////
-  private static Vector<SmartsfilterResult> Smartsfilter_LaunchThread(
-	MolImporter molReader,
-	MultipartRequest mrequest,HttpServletResponse response,HttpParams params)
-	throws IOException,ServletException
+  private static Vector<SmartsfilterResult> Smartsfilter_LaunchThread(MolImporter molReader, MultipartRequest mrequest,HttpServletResponse response,HttpParams params) throws IOException,ServletException
   {
-    ExecutorService exec=Executors.newSingleThreadExecutor();
+    ExecutorService exec = Executors.newSingleThreadExecutor();
     int tpoll=5000; //msec
-    Integer arom=(params.getVal("arom").equals("gen"))?MoleculeGraph.AROM_GENERAL:((params.getVal("arom").equals("bas"))?MoleculeGraph.AROM_BASIC:null);
-    Smartsfilter_Task task = new Smartsfilter_Task(molReader,smartsFile,arom,stdizer,N_MAX);
-    TaskUtils.ExecTaskWeb(exec,task,task.taskstatus,SERVLETNAME,tpoll,out,response,PROGRESS_WIN_NAME);
+    Integer arom = (params.getVal("arom").equals("gen"))?MoleculeGraph.AROM_GENERAL:((params.getVal("arom").equals("bas"))?MoleculeGraph.AROM_BASIC:null);
+    Smartsfilter_Task task = new Smartsfilter_Task(molReader, smartsFile, arom, stdizer, N_MAX);
+    TaskUtils.ExecTaskWeb(exec, task, task.taskstatus, SERVLETNAME, tpoll, out, response, PROGRESS_WIN_NAME);
     if (task.getErrorCount()>0)
     {
       errors.add("Smartsfilter_Task errors: "+task.getErrorCount());
@@ -786,15 +777,12 @@ public class smartsfilter_servlet extends HttpServlet
     return task.getResults();
   }
   /////////////////////////////////////////////////////////////////////////////
-  private static void Smartsfilter_Results(Vector<SmartsfilterResult> results,
-	MolImporter molReader,
-	MultipartRequest mrequest,HttpServletResponse response,
-	HttpParams params)
+  private static void Smartsfilter_Results(Vector<SmartsfilterResult> results, MolImporter molReader, MultipartRequest mrequest,HttpServletResponse response, HttpParams params)
 	throws IOException,ServletException
   {
     int w=120;
     int h=120;
-    String depopts=("mode=cow");
+    String depopts = ("mode=cow");
     depopts+=("&imgfmt=png");
     if (params.getVal("arom").equals("gen")) depopts+=("&arom_gen=true");
     else if (params.getVal("arom").equals("bas")) depopts+=("&arom_bas=true");
@@ -802,19 +790,19 @@ public class smartsfilter_servlet extends HttpServlet
 
     File fout=null;
     try {
-      File dout=new File(SCRATCHDIR);
+      File dout = new File(SCRATCHDIR);
       if (!dout.exists())
       {
-        boolean ok=dout.mkdir();
+        boolean ok = dout.mkdir();
         System.err.println("SCRATCHDIR creation "+(ok?"succeeded":"failed")+": "+SCRATCHDIR);
       }
-      fout=File.createTempFile(TMPFILE_PREFIX,"_out."+params.getVal("ofmt"),dout);
+      fout = File.createTempFile(TMPFILE_PREFIX, "_out."+params.getVal("ofmt"), dout);
     }
     catch (IOException e) {
       errors.add("ERROR: could not open temp file; check SCRATCHDIR: "+SCRATCHDIR);
       return;
     }
-    String ofmt_full=params.getVal("ofmt")+":";
+    String ofmt_full = params.getVal("ofmt")+":";
     if (params.getVal("ofmt").equals("smiles"))
       ofmt_full+="r1";  //no-checking, as-is
     if (params.getVal("ofmt").equals("smiles") && params.isChecked("fullann"))
@@ -823,14 +811,14 @@ public class smartsfilter_servlet extends HttpServlet
       for (String groupname : smartsFile.getGroupnames()) { ofmt_full+=(groupname+":"); }
     }
 
-    MolExporter molWriter = new MolExporter(new FileOutputStream(fout),ofmt_full);
+    MolExporter molWriter = new MolExporter(new FileOutputStream(fout), ofmt_full);
 
     LinkedHashMap<String,Integer> group_stats = new LinkedHashMap<String,Integer>();
-    for (String groupname : smartsFile.getGroupnames()) group_stats.put(groupname,0);
+    for (String groupname : smartsFile.getGroupnames()) group_stats.put(groupname, 0);
 
     // Can we simply rewind the molReader and merge SD data?
     // Yes.  But I how robust is this regarding syncronization?
-    MolImporter molReader2 = RewindMolReader(molReader,mrequest,params);
+    MolImporter molReader2 = RewindMolReader(molReader, mrequest, params);
 
     int n_pass=0;
     int n_fail=0;
@@ -846,12 +834,12 @@ public class smartsfilter_servlet extends HttpServlet
       }
       else
       {
-        try { mol=MolImporter.importMol(smi,"smiles:"); }
+        try { mol = MolImporter.importMol(smi, "smiles:"); }
         catch (MolFormatException e) { errors.add("["+(i+1)+"] "+e.getMessage()); ++n_err; continue; }
       }
 
       Molecule mol_in; //from input file
-      try { mol_in=molReader2.read(); }
+      try { mol_in = molReader2.read(); }
       catch (MolFormatException e) { errors.add("["+(i+1)+"] "+e.getMessage()); ++n_err; continue; }
 
       if (mol==null) { ++n_err; continue; }
@@ -859,28 +847,28 @@ public class smartsfilter_servlet extends HttpServlet
 
       if (params.isChecked("fullann"))
       {
-        mol.setProperty("SMARTSFILTER_MOLNAME",result.getName());
+        mol.setProperty("SMARTSFILTER_MOLNAME", result.getName());
 
         MPropertyContainer mprops_in = mol_in.properties();
         for (String key: mprops_in.getKeys())
-          mol.setProperty(key,MPropHandler.convertToString(mprops_in,key));
+          mol.setProperty(key, MPropHandler.convertToString(mprops_in, key));
 
         for (String groupname:smartsFile.getGroupnames())
-          mol.setProperty(groupname,"pass"); //overwritten by fails
+          mol.setProperty(groupname, "pass"); //overwritten by fails
       }
       if (result.getMatches().size()>0)
       {
         if (params.isChecked("fullann"))
         {
-          mol.setProperty("SMARTSFILTER_MATCHES","");
+          mol.setProperty("SMARTSFILTER_MATCHES", "");
           for (int j=0;j<result.getMatches().size();++j)
           {
-            Smarts match=result.getMatches().get(j);
-            mol.setProperty(match.getGroupname(),"fail");
+            Smarts match = result.getMatches().get(j);
+            mol.setProperty(match.getGroupname(), "fail");
             mol.setProperty("SMARTSFILTER_MATCHES",
               //mol.getProperty("SMARTSFILTER_MATCHES")+((j>0)?"\n":"")+match.getSmarts()+" //old way
               //"+match.getGroupname()+": "+match.getName()); //old way
-              MPropHandler.convertToString(mol.properties(),"SMARTSFILTER_MATCHES")+((j>0)?"\n":"")
+              MPropHandler.convertToString(mol.properties(), "SMARTSFILTER_MATCHES")+((j>0)?"\n":"")
                 +match.getSmarts()+" "+match.getGroupname()+": "+match.getName()); //new way
           }
         }
@@ -888,7 +876,7 @@ public class smartsfilter_servlet extends HttpServlet
         {
           mol.setName(mol.getName()+"\tfail");
         }
-        //ArrayList<String> groupnames_this=new ArrayList<String>();
+        //ArrayList<String> groupnames_this = new ArrayList<String>();
         //for (Smarts match:result.getMatches())
         //{
         //  if (!groupnames_this.contains(match.getGroupname())) groupnames_this.add(match.getGroupname());
@@ -896,7 +884,7 @@ public class smartsfilter_servlet extends HttpServlet
         //for (String groupname:groupnames_this) { group_stats.put(groupname,group_stats.get(groupname)+1); }
         for (String groupname:smartsFile.getGroupnames())
         {
-          if (result.groupHasMatch(groupname)) group_stats.put(groupname,group_stats.get(groupname)+1);
+          if (result.groupHasMatch(groupname)) group_stats.put(groupname, group_stats.get(groupname)+1);
         }
         ++n_fail;
         if (params.isChecked("inc_fail"))
@@ -914,18 +902,18 @@ public class smartsfilter_servlet extends HttpServlet
       }
     }
 
-    int n_mols=results.size();
+    int n_mols = results.size();
     outputs.add("<B>RESULT:</B>");
     outputs.add("total: "+n_mols);
     if (n_mols==N_MAX) outputs.add("Warning: N_MAX limit reached; output may be truncated.");
-    outputs.add(String.format("passed: %d (%.1f%%)",n_pass,100.0*n_pass/n_mols));
-    outputs.add(String.format("failed: %d (%.1f%%)",n_fail,100.0*n_fail/n_mols));
-    outputs.add(String.format("errors: %d",n_err));
+    outputs.add(String.format("passed: %d (%.1f%%)", n_pass, 100.0*n_pass/n_mols));
+    outputs.add(String.format("failed: %d (%.1f%%)", n_fail, 100.0*n_fail/n_mols));
+    outputs.add(String.format("errors: %d", n_err));
 
     for (String groupname:group_stats.keySet())
     {
-      int n_fail_group=group_stats.get(groupname);
-      outputs.add(String.format("failed %s: %d (%.1f%%)",groupname,n_fail_group,100.0*n_fail_group/n_mols));
+      int n_fail_group = group_stats.get(groupname);
+      outputs.add(String.format("failed %s: %d (%.1f%%)", groupname, n_fail_group, 100.0*n_fail_group/n_mols));
     }
 
     int n_out=0;
@@ -934,10 +922,10 @@ public class smartsfilter_servlet extends HttpServlet
 
     if (n_out>0 && params.isChecked("out_batch"))
     {
-      outputs.add(String.format("out: %d",n_out));
-      String fpath=fout.getAbsolutePath();
+      outputs.add(String.format("out: %d", n_out));
+      String fpath = fout.getAbsolutePath();
       long fsize = fout.length();
-      String fname=(SERVLETNAME+"_out."+params.getVal("ofmt"));
+      String fname = (SERVLETNAME+"_out."+params.getVal("ofmt"));
       outputs.add(
         "<FORM METHOD=\"POST\" ACTION=\""+response.encodeURL(SERVLETNAME)+"\">\n"+
         "<INPUT TYPE=HIDDEN NAME=\"downloadfile\" VALUE=\""+fpath+"\">\n"+
@@ -966,9 +954,9 @@ public class smartsfilter_servlet extends HttpServlet
       {
         SmartsfilterResult result = results.get(i);
         //ArrayList<Smarts> matches = result.getMatches();
-        String smiles=result.getSmiles();
-        String molname=result.getName();
-        if (molname.isEmpty()) molname=String.format("%d",result.getIndex()+1);
+        String smiles = result.getSmiles();
+        String molname = result.getName();
+        if (molname.isEmpty()) molname = String.format("%d", result.getIndex()+1);
         String opts=depopts;
         String rhtm="";
         if (result.getMatches().size()>0)
@@ -982,7 +970,7 @@ public class smartsfilter_servlet extends HttpServlet
             smartses+=result.getMatches().get(j).getSmarts();
           }
           if (smartses.length()<2000)
-            opts+="&smartses="+URLEncoder.encode(smartses,"UTF-8");
+            opts+="&smartses="+URLEncoder.encode(smartses, "UTF-8");
           rhtm+="<TR BGCOLOR=\"#FF8888\">";
         }
         else
@@ -995,14 +983,14 @@ public class smartsfilter_servlet extends HttpServlet
         String imghtm;
         if (params.isChecked("depict"))
         {
-          imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,SMI2IMG_SERVLETURL,true,4,"go_zoom_smi2img");
+          imghtm = HtmUtils.Smi2ImgHtm(smiles, opts, h, w, SMI2IMG_SERVLETURL, true, 4, "go_zoom_smi2img");
           rhtm+="<TD>"+imghtm+"</TD>\n";
           rhtm+="<TD><TT>"+molname+"</TT></TD>\n";
         }
         else
         {
-          imghtm=HtmUtils.Smi2ImgHtm(smiles,opts,h,w,SMI2IMG_SERVLETURL,false,4,null);
-          rhtm+=("<TD><TT>"+HtmUtils.HtmTipper(molname,imghtm,w,"white")+"</TT></TD>\n");
+          imghtm = HtmUtils.Smi2ImgHtm(smiles, opts, h, w, SMI2IMG_SERVLETURL, false, 4, null);
+          rhtm+=("<TD><TT>"+HtmUtils.HtmTipper(molname, imghtm, w, "white")+"</TT></TD>\n");
         }
 
         rhtm+="<TD>"+(result.pass()?"pass":"fail")+"</TD>\n";
@@ -1014,12 +1002,12 @@ public class smartsfilter_servlet extends HttpServlet
             matchhtm=("<UL>\n");
             for (int j=0;j<result.getMatches().size();++j)
             {
-              Smarts smrt=result.getMatches().get(j);
+              Smarts smrt = result.getMatches().get(j);
               matchhtm+=("<LI>");
-              String smahtm=("<TT>"+smrt.getRawsmarts()+"</TT>");
+              String smahtm = ("<TT>"+smrt.getRawsmarts()+"</TT>");
               if (!smrt.getSmarts().equals(smrt.getRawsmarts()))
                 smahtm+=("<BR><I>"+smrt.getSmarts()+"</I>");
-              matchhtm+=(HtmUtils.HtmTipper(smrt.getGroupname()+":"+smrt.getName(),smahtm,200,"yellow")+"\n");
+              matchhtm+=(HtmUtils.HtmTipper(smrt.getGroupname()+":"+smrt.getName(), smahtm, 200, "yellow")+"\n");
             }
             matchhtm+=("</UL>\n");
             rhtm+=("<TD>"+matchhtm+"</TD>\n");
@@ -1102,7 +1090,7 @@ public class smartsfilter_servlet extends HttpServlet
 "    pwin.document.writeln('"+DateFormat.getDateInstance(DateFormat.FULL).format(new Date())+"<BR>');\n"+
 "\n"+
 "    if (navigator.appName.indexOf('Explorer')<0)\n"+
-"      pwin.document.title='"+SERVLETNAME+" progress'; //not-ok for IE\n"+
+"      pwin.document.title = '"+SERVLETNAME+" progress'; //not-ok for IE\n"+
 "\n"+
 "  }\n"+
 "  form.filter.value='TRUE';\n"+
@@ -1124,7 +1112,7 @@ public class smartsfilter_servlet extends HttpServlet
 "  form.changemode.value='TRUE';\n"+
 "  form.submit();\n"+
 "}\n"+
-"function checkform(form,formmode)\n"+
+"function checkform(form, formmode)\n"+
 "{\n"+
 "  if (!form.intxt.value && !form.infile.value) {\n"+
 "    alert('ERROR: No input molecules specified');\n"+
@@ -1337,25 +1325,25 @@ public class smartsfilter_servlet extends HttpServlet
   public void init(ServletConfig conf) throws ServletException
   {
     super.init(conf);
-    CONTEXT=getServletContext();
-    CONTEXTPATH=CONTEXT.getContextPath();
-    try { APPNAME=conf.getInitParameter("APPNAME"); }
-    catch (Exception e) { APPNAME=this.getServletName(); }
-    UPLOADDIR=conf.getInitParameter("UPLOADDIR");
+    CONTEXT = getServletContext();
+    CONTEXTPATH = CONTEXT.getContextPath();
+    try { APPNAME = conf.getInitParameter("APPNAME"); }
+    catch (Exception e) { APPNAME = this.getServletName(); }
+    UPLOADDIR = conf.getInitParameter("UPLOADDIR");
     if (UPLOADDIR==null)
       throw new ServletException("Please supply UPLOADDIR parameter");
-    SCRATCHDIR=conf.getInitParameter("SCRATCHDIR");
+    SCRATCHDIR = conf.getInitParameter("SCRATCHDIR");
     if (SCRATCHDIR==null) { SCRATCHDIR="/tmp"; }
-    try { N_MAX=Integer.parseInt(conf.getInitParameter("N_MAX")); }
+    try { N_MAX = Integer.parseInt(conf.getInitParameter("N_MAX")); }
     catch (Exception e) { N_MAX=1000; }
-    try { N_MAX_VIEW=Integer.parseInt(conf.getInitParameter("N_MAX_VIEW")); }
+    try { N_MAX_VIEW = Integer.parseInt(conf.getInitParameter("N_MAX_VIEW")); }
     catch (Exception e) { N_MAX_VIEW=100; }
-    try { ENABLE_NOLIMIT=Boolean.parseBoolean(conf.getInitParameter("ENABLE_NOLIMIT")); }
+    try { ENABLE_NOLIMIT = Boolean.parseBoolean(conf.getInitParameter("ENABLE_NOLIMIT")); }
     catch (Exception e) { ENABLE_NOLIMIT=false; }
-    try { MAX_POST_SIZE=Integer.parseInt(conf.getInitParameter("MAX_POST_SIZE")); }
+    try { MAX_POST_SIZE = Integer.parseInt(conf.getInitParameter("MAX_POST_SIZE")); }
     catch (Exception e) { MAX_POST_SIZE=10*1024*1024; }
-    PROXY_PREFIX=((conf.getInitParameter("PROXY_PREFIX")!=null)?conf.getInitParameter("PROXY_PREFIX"):"");
-    SMARTSDIR=CONTEXT.getRealPath("")+"/data/smarts"; //Works.
+    PROXY_PREFIX = ((conf.getInitParameter("PROXY_PREFIX")!=null)?conf.getInitParameter("PROXY_PREFIX"):"");
+    SMARTSDIR = CONTEXT.getRealPath("")+"/data/smarts"; //Works.
     ArrayList<String> smartsfnames = new ArrayList<String>();
     smartsfnames.addAll(Arrays.asList(glaxo_files));
     smartsfnames.addAll(Arrays.asList(ursu_files));
@@ -1371,12 +1359,12 @@ public class smartsfilter_servlet extends HttpServlet
     {
       SmartsFile sf = new SmartsFile();
       try {
-        sf.parseFile(new File(SMARTSDIR+"/"+smafile),false,smafile.replaceFirst("\\..*$",""));
+        sf.parseFile(new File(SMARTSDIR+"/"+smafile), false, smafile.replaceFirst("\\..*$", ""));
       }
       catch (Exception e) {
         throw new ServletException("problem reading smarts file: "+e.getMessage());
       }
-      SMARTSFILES.put(smafile,sf);
+      SMARTSFILES.put(smafile, sf);
       CONTEXT.log("loaded smarts file: "+smafile+" ("+sf.getRawtxt().length()+" bytes, "
         +sf.size()+" smarts, "
         +sf.getDefines().size()+" defines, "
@@ -1384,9 +1372,9 @@ public class smartsfilter_servlet extends HttpServlet
     }
   }
   /////////////////////////////////////////////////////////////////////////////
-  public void doGet(HttpServletRequest request,HttpServletResponse response)
+  public void doGet(HttpServletRequest request, HttpServletResponse response)
       throws IOException,ServletException
   {
-    doPost(request,response);
+    doPost(request, response);
   }
 }

@@ -10,15 +10,14 @@ import chemaxon.struc.*;
 import chemaxon.struc.prop.MMoleculeProp;
 import chemaxon.sss.search.*;
 import chemaxon.reaction.*; //Standardizer, StandardizerException
+import chemaxon.license.*; //LicenseManager, JCHEM
  
 import edu.unm.health.biocomp.util.threads.*;
  
 /**	Callable task for smarts searching.
-
 	@author Jeremy J Yang
 */
-public class Smartsfilter_Task
-	implements Callable<Boolean>
+public class Smartsfilter_Task implements Callable<Boolean>
 {
   private MolImporter molReader;
   private Integer arom;
@@ -33,16 +32,14 @@ public class Smartsfilter_Task
   private ArrayList<String> errors;
   private Date t0;
   private Vector<SmartsfilterResult> results;
-  public Smartsfilter_Task(MolImporter _molReader,
-	SmartsFile _smaf,
-	Integer _arom,Standardizer _stdizer,Integer _n_max)
+  public Smartsfilter_Task(MolImporter _molReader, SmartsFile _smaf, Integer _arom,Standardizer _stdizer,Integer _n_max)
   {
     this.molReader=_molReader;
     this.smaf=_smaf;
     this.arom=_arom;
     this.stdizer=_stdizer;
     this.n_max=_n_max;
-    this.taskstatus=new Status(this);
+    this.taskstatus = new Status(this);
     this.n_total=0;
     this.n_done=0;
     this.n_err=0;
@@ -57,6 +54,10 @@ public class Smartsfilter_Task
   public synchronized Vector<SmartsfilterResult> getResults() { return results; }
   public synchronized Boolean call()
   {
+    if (!LicenseManager.isLicensed(LicenseManager.JCHEM)) {
+      this.errors.add("ChemAxon license not found: JCHEM");
+      return false;
+    }
     for (int i=0;true;++i,++n_done)
     {
       if (n_max>0 && i==n_max) break;
